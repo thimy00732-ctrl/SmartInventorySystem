@@ -1,0 +1,12 @@
+
+# IDE
+.idea/
+
+# Gradle cache and build output
+.gradle/
+**/build/
+
+# Secrets
+.env
+.env.*
+!.env.example
