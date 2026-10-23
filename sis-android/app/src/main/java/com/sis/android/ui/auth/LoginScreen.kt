@@ -1,38 +1,33 @@
 
 package com.sis.android.ui.auth
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.sis.android.data.remote.MockAuthApi
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen() {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var showPassword by remember { mutableStateOf(false) }
+
+    var usernameError by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var isSuccess by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+
+    val api = remember { MockAuthApi() }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -42,8 +37,8 @@ fun LoginScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "ĐĂNG NHẬP",
-            style = MaterialTheme.typography.headlineMedium
+            text = "ĐĂNG NHẬP HỆ THỐNG",
+            style = MaterialTheme.typography.headlineSmall
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -52,75 +47,128 @@ fun LoginScreen() {
             value = username,
             onValueChange = {
                 username = it
-                errorMessage = ""
+                usernameError = ""
+                message = ""
             },
             label = { Text("Tên đăng nhập") },
+            isError = usernameError.isNotEmpty(),
+            supportingText = {
+                if (usernameError.isNotEmpty()) {
+                    Text(usernameError)
+                }
+            },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = password,
             onValueChange = {
                 password = it
-                errorMessage = ""
+                passwordError = ""
+                message = ""
             },
             label = { Text("Mật khẩu") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading,
-            visualTransformation = if (showPassword) {
-                VisualTransformation.None
-            } else {
-                PasswordVisualTransformation()
-            },
+            visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password
             ),
-            trailingIcon = {
-                androidx.compose.material3.TextButton(
-                    onClick = { showPassword = !showPassword }
-                ) {
-                    Text(if (showPassword) "Ẩn" else "Hiện")
+            isError = passwordError.isNotEmpty(),
+            supportingText = {
+                if (passwordError.isNotEmpty()) {
+                    Text(passwordError)
                 }
-            }
+            },
+            singleLine = true,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        if (errorMessage.isNotEmpty()) {
+        if (message.isNotEmpty()) {
             Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error
+                text = message,
+                color = if (isSuccess) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+                style = MaterialTheme.typography.bodyMedium
             )
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         Button(
             onClick = {
-                when {
-                    username.isBlank() -> {
-                        errorMessage = "Vui lòng nhập tên đăng nhập"
-                    }
+                // Buoc 1: Kiem tra du lieu dau vao
+                usernameError = when {
+                    username.isBlank() ->
+                        "Vui lòng nhập tên đăng nhập"
+                    else -> ""
+                }
 
-                    password.isBlank() -> {
-                        errorMessage = "Vui lòng nhập mật khẩu"
-                    }
+                passwordError = when {
+                    password.isBlank() ->
+                        "Vui lòng nhập mật khẩu"
+                    else -> ""
+                }
 
-                    else -> {
-                        errorMessage =
-                            "Dữ liệu hợp lệ. Chưa kết nối Mock API."
+                message = ""
+                isSuccess = false
+
+                // Buoc 2: Chi goi API khi du lieu hop le
+                if (usernameError.isEmpty() &&
+                    passwordError.isEmpty()
+                ) {
+                    scope.launch {
+                        loading = true
+
+                        try {
+                            val result = api.login(
+                                username.trim(),
+                                password
+                            )
+
+                            if (result) {
+                                message = "Đăng nhập thành công!"
+                                isSuccess = true
+                            } else {
+                                message =
+                                    "Tên đăng nhập hoặc mật khẩu không đúng"
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: IOException) {
+                            message =
+                                "Lỗi mạng: Không thể kết nối đến máy chủ"
+                        } catch (e: Exception) {
+                            message =
+                                "Đã xảy ra lỗi. Vui lòng thử lại"
+                        } finally {
+                            loading = false
+                        }
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            enabled = !loading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
         ) {
-            if (isLoading) {
-                CircularProgressIndicator()
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Đang đăng nhập...")
             } else {
                 Text("Đăng nhập")
             }
