@@ -8,6 +8,7 @@ import com.sis.backend.exception.InvalidProductCategoryException
 import com.sis.backend.exception.InvalidProductException
 import com.sis.backend.exception.ProductNotFoundException
 import com.sis.backend.repository.ProductRepository
+import java.util.UUID
 
 /**
  * Xử lý nghiệp vụ quản lý sản phẩm.
@@ -38,16 +39,45 @@ class ProductService(
     /**
      * Tạo sản phẩm mới sau khi kiểm tra dữ liệu.
      *
+     * Nếu Barcode không được cung cấp, hệ thống sẽ tự sinh Barcode.
+     *
      * @param request Dữ liệu sản phẩm.
      * @param createdBy ID người tạo, nếu có.
-     * @return Sản phẩm mới được tạo.
+     * @return Sản phẩm vừa được tạo.
      */
-    fun create(request: ProductRequest, createdBy: Long? = null): Product {
-        val normalized = validateAndNormalize(request)
+    fun create( request: ProductRequest, createdBy: Long? = null): Product {
+        var normalized = validateAndNormalize(request)
+
+        if (normalized.barcode == null) {
+            var barcode: String
+
+            do {
+                barcode = generateBarcode()
+            } while (repository.existsByBarcode(barcode))
+
+            normalized = normalized.copy(barcode = barcode)
+        }
+
         validateUniqueFields(normalized)
         validateCategory(normalized.categoryId)
 
         return repository.create(normalized, createdBy)
+    }
+
+    /**
+     * Sinh mã Barcode gồm 13 chữ số để định danh sản phẩm trong hệ thống.
+     *
+     * Mã được tạo dựa trên UUID và không đại diện cho mã GS1
+     * được cấp chính thức.
+     *
+     * @return Chuỗi Barcode gồm 13 chữ số.
+     */
+    private fun generateBarcode(): String {
+        val digits = UUID.randomUUID()
+            .toString()
+            .filter { it.isDigit() }
+
+        return digits.padEnd(13, '0').take(13)
     }
 
     /**
