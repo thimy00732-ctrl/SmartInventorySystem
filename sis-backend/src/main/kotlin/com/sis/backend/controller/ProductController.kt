@@ -54,4 +54,26 @@ class ProductController(
      * @param id ID sản phẩm.
      */
     fun delete(id: Long) = service.delete(id)
+
+    /**
+     * Tìm kiếm sản phẩm theo tên hoặc SKU.
+     *
+     * @param keyword Từ khóa tìm kiếm.
+     * @return Danh sách sản phẩm phù hợp.
+     */
+    fun searchProducts(keyword: String): List<Product> {
+        return service.searchProducts(keyword)
+    }
+
+    /**
+     * Tra cứu sản phẩm theo Barcode.
+     *
+     * @param barcode Barcode cần tra cứu.
+     * @return Sản phẩm tìm được.
+     * @throws InvalidProductException Nếu Barcode rỗng.
+     * @throws ProductNotFoundException Nếu Barcode không tồn tại.
+     */
+    fun getProductByBarcode(barcode: String): Product {
+        return service.getProductByBarcode(barcode)
+    }
 }

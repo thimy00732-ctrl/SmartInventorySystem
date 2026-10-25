@@ -216,4 +216,33 @@ class ProductService(
             throw InvalidProductException("ID sản phẩm không hợp lệ")
         }
     }
+
+    /**
+     * Tìm kiếm sản phẩm theo tên hoặc SKU.
+     *
+     * @param keyword Từ khóa tìm kiếm; có thể là chuỗi rỗng.
+     * @return Danh sách sản phẩm phù hợp.
+     */
+    fun searchProducts(keyword: String): List<Product> {
+        return repository.search(keyword)
+    }
+
+    /**
+     * Tra cứu sản phẩm bằng Barcode.
+     *
+     * @param barcode Barcode cần tra cứu.
+     * @return Sản phẩm tương ứng.
+     * @throws InvalidProductException Nếu Barcode rỗng.
+     * @throws ProductNotFoundException Nếu không tìm thấy sản phẩm.
+     */
+    fun getProductByBarcode(barcode: String): Product {
+        val normalizedBarcode = barcode.trim()
+
+        if (normalizedBarcode.isEmpty()) {
+            throw InvalidProductException("Barcode không được để trống.")
+        }
+
+        return repository.findByBarcode(normalizedBarcode)
+            ?: throw ProductNotFoundException()
+    }
 }

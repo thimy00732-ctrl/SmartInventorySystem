@@ -31,6 +31,66 @@ import java.sql.SQLException
 fun Route.productRoutes(controller: ProductController) {
     route("/api/products") {
 
+        // GET /api/products?q={keyword}
+        get {
+            val keyword = call.request.queryParameters["q"].orEmpty()
+
+            try {
+                call.respond(
+                    HttpStatusCode.OK,
+                    controller.searchProducts(keyword)
+                )
+            } catch (exception: Exception) {
+                call.application.environment.log.error(
+                    "Lỗi khi tìm kiếm sản phẩm.",
+                    exception
+                )
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    mapOf("message" to "Không thể tìm kiếm sản phẩm.")
+                )
+            }
+        }
+
+// GET /api/products/barcode/{barcode}
+        get("/barcode/{barcode}") {
+            val barcode = call.parameters["barcode"]
+
+            if (barcode.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("message" to "Barcode không được để trống.")
+                )
+                return@get
+            }
+
+            try {
+                call.respond(
+                    HttpStatusCode.OK,
+                    controller.getProductByBarcode(barcode)
+                )
+            } catch (exception: ProductNotFoundException) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    mapOf("message" to "Không tìm thấy sản phẩm với Barcode đã cung cấp.")
+                )
+            } catch (exception: InvalidProductException) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("message" to (exception.message ?: "Barcode không hợp lệ."))
+                )
+            } catch (exception: Exception) {
+                call.application.environment.log.error(
+                    "Lỗi khi tra cứu sản phẩm bằng Barcode.",
+                    exception
+                )
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    mapOf("message" to "Không thể tra cứu sản phẩm.")
+                )
+            }
+        }
+
         /**
          * GET /api/products
          * Trả về danh sách sản phẩm.
@@ -180,4 +240,7 @@ private suspend fun io.ktor.server.routing.RoutingContext.handleProductErrors(
             mapOf("error" to "Đã xảy ra lỗi máy chủ")
         )
     }
+
+
+
 }

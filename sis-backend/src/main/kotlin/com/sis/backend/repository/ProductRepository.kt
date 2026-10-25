@@ -297,4 +297,77 @@ class ProductRepository(
 
         return exception
     }
+
+    /**
+     * Tìm kiếm sản phẩm theo tên hoặc SKU.
+     *
+     * @param keyword Từ khóa tìm kiếm; chuỗi rỗng trả về toàn bộ sản phẩm.
+     * @return Danh sách sản phẩm phù hợp.
+     */
+    fun search(keyword: String): List<Product> {
+        val normalizedKeyword = keyword.trim()
+
+        if (normalizedKeyword.isEmpty()) {
+            return findAll()
+        }
+
+        val escapedKeyword = normalizedKeyword
+            .replace("!", "!!")
+            .replace("%", "!%")
+            .replace("_", "!_")
+
+        val sql = """
+        SELECT $SELECT_COLUMNS
+        FROM products
+        WHERE product_name LIKE ? ESCAPE '!'
+           OR sku LIKE ? ESCAPE '!'
+        ORDER BY product_id DESC
+    """.trimIndent()
+
+        val searchPattern = "%$escapedKeyword%"
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, searchPattern)
+                statement.setString(2, searchPattern)
+
+                statement.executeQuery().use { resultSet ->
+                    buildList {
+                        while (resultSet.next()) {
+                            add(mapProduct(resultSet))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Tìm sản phẩm theo Barcode chính xác.
+     *
+     * @param barcode Barcode cần tra cứu.
+     * @return Sản phẩm nếu tìm thấy; ngược lại trả về null.
+     */
+    fun findByBarcode(barcode: String): Product? {
+        val sql = """
+        SELECT $SELECT_COLUMNS
+        FROM products
+        WHERE barcode = ?
+        LIMIT 1
+    """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, barcode)
+
+                statement.executeQuery().use { resultSet ->
+                    if (resultSet.next()) {
+                        mapProduct(resultSet)
+                    } else {
+                        null
+                    }
+                }
+            }
+        }
+    }
 }
