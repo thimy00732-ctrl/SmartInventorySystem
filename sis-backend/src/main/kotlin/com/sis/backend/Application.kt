@@ -16,6 +16,10 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import java.sql.Connection
 import javax.sql.DataSource
+import com.sis.backend.controller.ProductController
+import com.sis.backend.repository.ProductRepository
+import com.sis.backend.routes.productRoutes
+import com.sis.backend.service.ProductService
 
 lateinit var dataSource: DataSource
     private set
@@ -85,6 +89,15 @@ fun Application.module() {
             CategoryController(
                 CategoryService(
                     CategoryRepository(dataSource)
+                )
+            )
+        )
+
+        // CRUD sản phẩm - Task 10
+        productRoutes(
+            ProductController(
+                ProductService(
+                    ProductRepository(dataSource)
                 )
             )
         )
