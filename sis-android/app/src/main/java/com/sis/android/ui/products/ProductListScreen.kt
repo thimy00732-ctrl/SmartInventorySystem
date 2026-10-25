@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,7 +17,8 @@ import com.sis.android.ui.viewmodel.ProductViewModel
 @Composable
 fun ProductListScreen(
     viewModel: ProductViewModel,
-    onProductClick: (Product) -> Unit // Khai báo rõ kiểu dữ liệu Product ở đây
+    onProductClick: (Product) -> Unit,
+    onAddClick: () -> Unit // <-- Bổ sung thêm tham số này để khớp với MainActivity
 ) {
     val products by viewModel.products.collectAsState()
 
@@ -28,6 +31,16 @@ fun ProductListScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
+        },
+        floatingActionButton = {
+            // Nút bấm nổi (FAB) dùng để chuyển sang màn hình Thêm sản phẩm
+            FloatingActionButton(
+                onClick = onAddClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Thêm sản phẩm mới")
+            }
         }
     ) { paddingValues ->
         LazyColumn(
