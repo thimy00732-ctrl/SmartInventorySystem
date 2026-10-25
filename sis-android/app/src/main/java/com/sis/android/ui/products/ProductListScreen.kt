@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.QrCodeScanner // <-- Đã nhận diện được nhờ extended icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,14 +21,12 @@ import com.sis.android.ui.viewmodel.ProductViewModel
 fun ProductListScreen(
     viewModel: ProductViewModel,
     onProductClick: (Product) -> Unit,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onScanClick: () -> Unit
 ) {
     val products by viewModel.products.collectAsState()
-
-    // Biến lưu trạng thái nội dung ô tìm kiếm
     var searchQuery by remember { mutableStateOf("") }
 
-    // Lọc danh sách sản phẩm dựa theo tên sản phẩm hoặc mã SKU (không phân biệt hoa thường)
     val filteredProducts = products.filter { product ->
         product.productName.contains(searchQuery, ignoreCase = true) ||
                 product.sku.contains(searchQuery, ignoreCase = true)
@@ -37,6 +36,14 @@ fun ProductListScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Quản Lý Kho - Sản Phẩm") },
+                actions = {
+                    IconButton(onClick = onScanClick) {
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner, // Sử dụng đúng icon quét mã
+                            contentDescription = "Quét Barcode"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -60,7 +67,6 @@ fun ProductListScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 🔍 Thanh tìm kiếm sản phẩm theo tên hoặc SKU
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -73,7 +79,6 @@ fun ProductListScreen(
                 shape = MaterialTheme.shapes.medium
             )
 
-            // Kiểm tra nếu danh sách sau khi lọc trống thì hiện thông báo, ngược lại hiển thị LazyColumn
             if (filteredProducts.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -114,10 +119,7 @@ fun ProductItemCard(product: Product, onClick: () -> Unit) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Text(
-                text = product.productName,
-                style = MaterialTheme.typography.titleMedium
-            )
+            Text(text = product.productName, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "SKU: ${product.sku} | ĐVT: ${product.unit}",
