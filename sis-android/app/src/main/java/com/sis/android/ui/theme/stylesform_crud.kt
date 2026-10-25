@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.Color
 private val CrudColorScheme = lightColorScheme(
     primary = CrudPrimaryBlue,
     onPrimary = Color.White,
+    primaryContainer = Color(0xFFD2E4FF),
+    onPrimaryContainer = Color(0xFF001D3D),
     secondary = CrudSecondaryTeal,
     onSecondary = Color.White,
     background = CrudBackgroundLight,
@@ -21,7 +23,7 @@ fun SISTheme(
 ) {
     MaterialTheme(
         colorScheme = CrudColorScheme,
-        typography = CrudTypography,
+        typography = CrudTypography, // Khai báo trong type_crud.kt
         content = content
     )
 }

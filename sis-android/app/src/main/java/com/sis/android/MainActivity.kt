@@ -13,8 +13,8 @@ import com.sis.android.data.model.Product
 import com.sis.android.ui.products.ProductDetailScreen
 import com.sis.android.ui.products.ProductFormScreen
 import com.sis.android.ui.products.ProductListScreen
+import com.sis.android.ui.theme.SISTheme // Gọi từ stylesform_crud.kt
 import com.sis.android.ui.viewmodel.ProductViewModel
-import com.sis.android.ui.theme.SISTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,7 +27,6 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val viewModel: ProductViewModel = viewModel()
 
-                    // Quản lý trạng thái màn hình hiện tại: "LIST", "DETAIL", "FORM"
                     var currentScreen by remember { mutableStateOf("LIST") }
                     var selectedProduct by remember { mutableStateOf<Product?>(null) }
                     var productToEdit by remember { mutableStateOf<Product?>(null) }
@@ -41,25 +40,22 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = "DETAIL"
                                 },
                                 onAddClick = {
-                                    productToEdit = null // Null nghĩa là Thêm mới
+                                    productToEdit = null
                                     currentScreen = "FORM"
                                 }
                             )
                         }
                         "DETAIL" -> {
-                            if (selectedProduct != null) {
+                            selectedProduct?.let { product ->
                                 ProductDetailScreen(
-                                    product = selectedProduct!!,
+                                    product = product,
                                     onBackClick = { currentScreen = "LIST" },
-                                    onEditClick = { product ->
-                                        productToEdit = product
+                                    onEditClick = { editProd ->
+                                        productToEdit = editProd
                                         currentScreen = "FORM"
                                     },
-                                    onDeleteClick = { product ->
-                                        // Thay product.id thành tên trường ID thực tế trong model Product của bạn (ví dụ: productId)
-                                        viewModel.deleteProduct(product.productId)
-
-                                        // Quay lại màn hình danh sách
+                                    onDeleteClick = { deleteProd ->
+                                        viewModel.deleteProduct(deleteProd.productId)
                                         currentScreen = "LIST"
                                     }
                                 )
@@ -70,13 +66,10 @@ class MainActivity : ComponentActivity() {
                                 productToEdit = productToEdit,
                                 onSave = { savedProduct ->
                                     if (productToEdit == null) {
-                                        // Gọi ViewModel để thêm sản phẩm mới
                                         viewModel.addProduct(savedProduct)
                                     } else {
-                                        // Gọi ViewModel để cập nhật sản phẩm
                                         viewModel.updateProduct(savedProduct)
                                     }
-                                    // Quay lại màn hình danh sách sau khi lưu
                                     currentScreen = "LIST"
                                 },
                                 onBackClick = { currentScreen = "LIST" }

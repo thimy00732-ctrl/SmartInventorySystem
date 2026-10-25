@@ -6,8 +6,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.sis.android.data.model.Product
@@ -18,9 +20,18 @@ import com.sis.android.ui.viewmodel.ProductViewModel
 fun ProductListScreen(
     viewModel: ProductViewModel,
     onProductClick: (Product) -> Unit,
-    onAddClick: () -> Unit // <-- Bổ sung thêm tham số này để khớp với MainActivity
+    onAddClick: () -> Unit
 ) {
     val products by viewModel.products.collectAsState()
+
+    // Biến lưu trạng thái nội dung ô tìm kiếm
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Lọc danh sách sản phẩm dựa theo tên sản phẩm hoặc mã SKU (không phân biệt hoa thường)
+    val filteredProducts = products.filter { product ->
+        product.productName.contains(searchQuery, ignoreCase = true) ||
+                product.sku.contains(searchQuery, ignoreCase = true)
+    }
 
     Scaffold(
         topBar = {
@@ -33,7 +44,6 @@ fun ProductListScreen(
             )
         },
         floatingActionButton = {
-            // Nút bấm nổi (FAB) dùng để chuyển sang màn hình Thêm sản phẩm
             FloatingActionButton(
                 onClick = onAddClick,
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -43,15 +53,49 @@ fun ProductListScreen(
             }
         }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
+                .padding(paddingValues)
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(products) { product ->
-                ProductItemCard(product = product, onClick = { onProductClick(product) })
+            // 🔍 Thanh tìm kiếm sản phẩm theo tên hoặc SKU
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Tìm kiếm theo tên sản phẩm hoặc mã SKU...") },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = "Icon tìm kiếm")
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium
+            )
+
+            // Kiểm tra nếu danh sách sau khi lọc trống thì hiện thông báo, ngược lại hiển thị LazyColumn
+            if (filteredProducts.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Không tìm thấy sản phẩm phù hợp!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(filteredProducts) { product ->
+                        ProductItemCard(product = product, onClick = { onProductClick(product) })
+                    }
+                }
             }
         }
     }
