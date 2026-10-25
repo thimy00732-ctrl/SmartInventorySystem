@@ -2,6 +2,10 @@
 package com.sis.backend
 
 import com.sis.backend.config.DatabaseConfig
+import com.sis.backend.controller.CategoryController
+import com.sis.backend.repository.CategoryRepository
+import com.sis.backend.routes.categoryRoutes
+import com.sis.backend.service.CategoryService
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -39,6 +43,7 @@ fun Application.module() {
     dataSource = DatabaseConfig.createDataSource()
 
     routing {
+        // Kiểm tra backend
         get("/health") {
             call.respond(
                 mapOf(
@@ -48,6 +53,7 @@ fun Application.module() {
             )
         }
 
+        // Kiểm tra kết nối database
         get("/health/database") {
             try {
                 dataSource.connection.use { connection: Connection ->
@@ -73,5 +79,14 @@ fun Application.module() {
                 )
             }
         }
+
+        // CRUD danh mục - Task 9
+        categoryRoutes(
+            CategoryController(
+                CategoryService(
+                    CategoryRepository(dataSource)
+                )
+            )
+        )
     }
 }
