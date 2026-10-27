@@ -9,7 +9,7 @@ class MockAuthApi {
     suspend fun login(
         username: String,
         password: String
-    ): Boolean {
+    ): String {
         // Gia lap thoi gian phan hoi cua API
         delay(1500)
 
@@ -18,7 +18,19 @@ class MockAuthApi {
             throw IOException("Không thể kết nối đến máy chủ")
         }
 
-        // Kiem tra tai khoan mau
-        return username == "admin" && password == "123456"
+        // Tai khoan quan tri vien
+        if (username == "admin" && password == "123456") {
+            return "mock_admin_token"
+        }
+
+        // Tai khoan nhan vien
+        if (username == "staff" && password == "123456") {
+            return "mock_staff_token"
+        }
+
+        // Tai khoan hoac mat khau khong dung
+        throw IllegalArgumentException(
+            "Tên đăng nhập hoặc mật khẩu không đúng."
+        )
     }
 }

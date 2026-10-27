@@ -7,27 +7,35 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.sis.android.data.remote.MockAuthApi
-import java.io.IOException
+import com.sis.android.data.repository.AuthRepository
+import com.sis.android.data.session.SessionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(
+    onLoginSuccess: (String) -> Unit
+) {
+    val context = LocalContext.current
+
+    val authRepository = remember {
+        AuthRepository(SessionManager(context))
+    }
+
+    val scope = rememberCoroutineScope()
+
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
     var usernameError by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     var isSuccess by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
-
-    val api = remember { MockAuthApi() }
-    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -96,32 +104,28 @@ fun LoginScreen() {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.error
-                },
-                style = MaterialTheme.typography.bodyMedium
+                }
             )
-
             Spacer(modifier = Modifier.height(12.dp))
         }
 
         Button(
             onClick = {
-                // Buoc 1: Kiem tra du lieu dau vao
-                usernameError = when {
-                    username.isBlank() ->
-                        "Vui lòng nhập tên đăng nhập"
-                    else -> ""
+                usernameError = if (username.isBlank()) {
+                    "Vui lòng nhập tên đăng nhập"
+                } else {
+                    ""
                 }
 
-                passwordError = when {
-                    password.isBlank() ->
-                        "Vui lòng nhập mật khẩu"
-                    else -> ""
+                passwordError = if (password.isBlank()) {
+                    "Vui lòng nhập mật khẩu"
+                } else {
+                    ""
                 }
 
                 message = ""
                 isSuccess = false
 
-                // Buoc 2: Chi goi API khi du lieu hop le
                 if (usernameError.isEmpty() &&
                     passwordError.isEmpty()
                 ) {
@@ -129,26 +133,28 @@ fun LoginScreen() {
                         loading = true
 
                         try {
-                            val result = api.login(
+                            // Repository xử lý đăng nhập và lưu phiên
+                            val role = authRepository.login(
                                 username.trim(),
                                 password
                             )
 
-                            if (result) {
-                                message = "Đăng nhập thành công!"
-                                isSuccess = true
-                            } else {
-                                message =
-                                    "Tên đăng nhập hoặc mật khẩu không đúng"
-                            }
+                            isSuccess = true
+                            message = "Đăng nhập thành công!"
+
+                            // Chuyển sang giao diện theo quyền
+                            onLoginSuccess(role)
+
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: IOException) {
                             message =
                                 "Lỗi mạng: Không thể kết nối đến máy chủ"
+                        } catch (e: IllegalArgumentException) {
+                            message = e.message
+                                ?: "Thông tin đăng nhập không đúng"
                         } catch (e: Exception) {
-                            message =
-                                "Đã xảy ra lỗi. Vui lòng thử lại"
+                            message = "Đã xảy ra lỗi. Vui lòng thử lại"
                         } finally {
                             loading = false
                         }
@@ -166,7 +172,6 @@ fun LoginScreen() {
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
-
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Đang đăng nhập...")
             } else {
