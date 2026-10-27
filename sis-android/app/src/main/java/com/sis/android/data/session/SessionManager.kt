@@ -2,52 +2,96 @@
 package com.sis.android.data.session
 
 import android.content.Context
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
 class SessionManager(context: Context) {
 
-    private val appContext = context.applicationContext
-
-    private val masterKey = MasterKey.Builder(appContext)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-
-    private val preferences = EncryptedSharedPreferences.create(
-        appContext,
+    private val preferences = context.getSharedPreferences(
         "sis_session",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        Context.MODE_PRIVATE
     )
 
-    // Lưu token và vai trò người dùng
+    companion object {
+        private const val KEY_TOKEN = "token"
+        private const val KEY_ROLE = "role"
+        private const val KEY_EMAIL = "remembered_email"
+        private const val KEY_REMEMBER = "remember_login"
+        private const val KEY_EXPIRY = "login_expiry"
+
+        private const val SEVEN_DAYS_MILLIS =
+            7L * 24 * 60 * 60 * 1000
+    }
+
     fun saveSession(token: String, role: String) {
         preferences.edit()
-            .putString("token", token)
-            .putString("role", role)
+            .putString(KEY_TOKEN, token)
+            .putString(KEY_ROLE, role)
             .apply()
     }
 
-    // Lấy token đã lưu
     fun getToken(): String? {
-        return preferences.getString("token", null)
+        return preferences.getString(KEY_TOKEN, null)
     }
 
-    // Lấy vai trò người dùng
     fun getRole(): String? {
-        return preferences.getString("role", null)
+        return preferences.getString(KEY_ROLE, null)
     }
 
-    // Kiểm tra đã có token hay chưa
     fun isLoggedIn(): Boolean {
         return !getToken().isNullOrBlank()
     }
 
-    // Xóa phiên đăng nhập
+    fun setRememberLogin(remember: Boolean) {
+        preferences.edit()
+            .putBoolean(KEY_REMEMBER, remember)
+            .apply()
+    }
+
+    fun shouldRememberLogin(): Boolean {
+        return preferences.getBoolean(KEY_REMEMBER, false)
+    }
+
+    fun saveRememberedEmail(email: String) {
+        preferences.edit()
+            .putString(KEY_EMAIL, email)
+            .apply()
+    }
+
+    fun getRememberedEmail(): String {
+        return preferences.getString(KEY_EMAIL, "") ?: ""
+    }
+
+    fun clearRememberedEmail() {
+        preferences.edit()
+            .remove(KEY_EMAIL)
+            .apply()
+    }
+
+    fun saveLoginExpiry() {
+        val expiryTime = System.currentTimeMillis() + SEVEN_DAYS_MILLIS
+
+        preferences.edit()
+            .putLong(KEY_EXPIRY, expiryTime)
+            .apply()
+    }
+
+    fun isSessionExpired(): Boolean {
+        val expiryTime = preferences.getLong(KEY_EXPIRY, 0L)
+
+        return expiryTime == 0L ||
+                System.currentTimeMillis() >= expiryTime
+    }
+
     fun clearSession() {
         preferences.edit()
-            .clear()
+            .remove(KEY_TOKEN)
+            .remove(KEY_ROLE)
+            .remove(KEY_EXPIRY)
             .apply()
+    }
+
+    fun logoutAndClearRememberedEmail() {
+        clearSession()
+        clearRememberedEmail()
+        setRememberLogin(false)
     }
 }

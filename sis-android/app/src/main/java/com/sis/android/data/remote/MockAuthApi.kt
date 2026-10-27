@@ -4,33 +4,41 @@ package com.sis.android.data.remote
 import kotlinx.coroutines.delay
 import java.io.IOException
 
-class adMockAuthApi {
+class MockAuthApi {
 
-    suspend fun login(
-        username: String,
-        password: String
-    ): String {
-        // Gia lap thoi gian phan hoi cua API
+    suspend fun login(email: String, password: String): String {
+        // Mô phỏng thời gian phản hồi của máy chủ
         delay(1500)
 
-        // Gia lap loi ket noi mang
-        if (username == "offline") {
-            throw IOException("Không thể kết nối đến máy chủ")
+        // Mô phỏng lỗi mạng
+        if (email.trim().equals("offline", ignoreCase = true)) {
+            throw IOException(
+                "Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng."
+            )
         }
 
-        // Tai khoan quan tri vien
-        if (username == "admin" && password == "123456") {
+        // Kiểm tra email và mật khẩu trống
+        if (email.isBlank() || password.isBlank()) {
+            throw IllegalArgumentException(
+                "Vui lòng nhập đầy đủ email và mật khẩu."
+            )
+        }
+
+        val normalizedEmail = email.trim().lowercase()
+
+        // Tài khoản Admin
+        if (normalizedEmail == "admin@sis.com" && password == "123456") {
             return "mock_admin_token"
         }
 
-        // Tai khoan nhan vien
-        if (username == "staff" && password == "123456") {
+        // Tài khoản Nhân viên
+        if (normalizedEmail == "staff@sis.com" && password == "123456") {
             return "mock_staff_token"
         }
 
-        // Tai khoan hoac mat khau khong dung
+        // Thông tin đăng nhập không chính xác
         throw IllegalArgumentException(
-            "Tên đăng nhập hoặc mật khẩu không đúng."
+            "Email hoặc mật khẩu không đúng."
         )
     }
 }
