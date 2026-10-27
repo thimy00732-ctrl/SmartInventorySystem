@@ -1,6 +1,7 @@
 package com.sis.backend.service
 
-import com.sis.backend.dto.CategoryRequest
+import com.sis.backend.dto.CreateCategoryRequest
+import com.sis.backend.dto.UpdateCategoryRequest
 import com.sis.backend.entity.Category
 import com.sis.backend.exception.CategoryInUseException
 import com.sis.backend.exception.CategoryNotFoundException
@@ -9,169 +10,197 @@ import com.sis.backend.exception.InvalidCategoryException
 import com.sis.backend.repository.CategoryRepository
 
 /**
- * Lớp dịch vụ (service) xử lý logic nghiệp vụ liên quan đến quản lý danh mục.
+ * Xử lý nghiệp vụ quản lý danh mục sản phẩm.
  *
- * @property repository Kho lưu trữ [CategoryRepository] dùng để thao tác dữ liệu danh mục.
+ * @property categoryRepository Repository thao tác với dữ liệu danh mục.
  */
 class CategoryService(
-    private val repository: CategoryRepository
+    private val categoryRepository: CategoryRepository
 ) {
-    /**
-     * Lấy danh sách toàn bộ các danh mục trong hệ thống.
-     *
-     * @return Danh sách các đối tượng [Category].
-     */
-    fun getAll(): List<Category> = repository.findAll()
 
     /**
-     * Lấy thông tin chi tiết của một danh mục dựa trên định danh (ID).
+     * Lấy danh sách danh mục, có thể lọc theo từ khóa
+     * và trạng thái hoạt động.
      *
-     * @param id Định danh duy nhất của danh mục cần tìm.
-     * @return Đối tượng [Category] tương ứng.
-     * @throws InvalidCategoryException nếu ID không hợp lệ.
-     * @throws CategoryNotFoundException nếu không tìm thấy danh mục với ID tương ứng.
+     * @param keyword Từ khóa tìm kiếm theo tên danh mục.
+     * @param activeOnly Nếu true, chỉ lấy danh mục đang hoạt động.
+     * @return Danh sách danh mục phù hợp với điều kiện lọc.
      */
-    fun getById(id: Long): Category {
-        validateId(id)
-        return repository.findById(id)
+    fun getCategories(
+        keyword: String? = null,
+        activeOnly: Boolean = false
+    ): List<Category> {
+        return categoryRepository.findAll(
+            keyword = keyword?.trim()?.ifEmpty { null },
+            activeOnly = activeOnly
+        )
+    }
+
+    /**
+     * Lấy thông tin danh mục theo ID.
+     *
+     * @param categoryId ID danh mục cần tìm.
+     * @return Thông tin danh mục.
+     * @throws InvalidCategoryException Nếu ID không hợp lệ.
+     * @throws CategoryNotFoundException Nếu không tìm thấy danh mục.
+     */
+    fun getCategoryById(categoryId: Long): Category {
+        if (categoryId <= 0) {
+            throw InvalidCategoryException(
+                "ID danh mục phải lớn hơn 0."
+            )
+        }
+
+        return categoryRepository.findById(categoryId)
             ?: throw CategoryNotFoundException()
     }
 
     /**
-     * Tạo mới một danh mục trong hệ thống dựa trên yêu cầu được cung cấp.
+     * Tạo danh mục mới sau khi kiểm tra dữ liệu đầu vào.
      *
-     * @param request Dữ liệu yêu cầu chứa thông tin danh mục cần tạo ([CategoryRequest]).
-     * @return Đối tượng [Category] sau khi đã được tạo thành công.
-     * @throws InvalidCategoryException nếu dữ liệu yêu cầu không hợp lệ.
-     * @throws DuplicateCategoryException nếu tên danh mục đã tồn tại.
+     * @param request Dữ liệu yêu cầu tạo danh mục.
+     * @return Danh mục vừa được tạo.
+     * @throws InvalidCategoryException Nếu dữ liệu không hợp lệ.
+     * @throws DuplicateCategoryException Nếu tên danh mục đã tồn tại.
      */
-    fun create(request: CategoryRequest): Category {
-        val name = validateName(request.categoryName)
-        val description = normalizeDescription(request.description)
-        val status = validateStatus(request.status)
+    fun createCategory(
+        request: CreateCategoryRequest
+    ): Category {
+        val categoryName = request.categoryName.trim()
+        val description = request.description
+            ?.trim()
+            ?.ifEmpty { null }
 
-        if (repository.existsByName(name)) {
+        validateCategoryData(categoryName, description)
+
+        if (categoryRepository.existsByName(categoryName)) {
             throw DuplicateCategoryException()
         }
 
-        return repository.create(name, description, status)
+        val category = Category(
+            categoryName = categoryName,
+            description = description,
+            isActive = true
+        )
+
+        return categoryRepository.create(category)
     }
 
     /**
-     * Cập nhật thông tin của một danh mục hiện có trong hệ thống.
+     * Cập nhật thông tin một danh mục đang hoạt động.
      *
-     * @param id Định danh duy nhất của danh mục cần cập nhật.
-     * @param request Dữ liệu yêu cầu chứa thông tin mới của danh mục ([CategoryRequest]).
-     * @return Đối tượng [Category] sau khi được cập nhật thành công.
-     * @throws InvalidCategoryException nếu ID hoặc dữ liệu yêu cầu không hợp lệ.
-     * @throws CategoryNotFoundException nếu không tìm thấy danh mục cần cập nhật.
-     * @throws DuplicateCategoryException nếu tên danh mục mới bị trùng lặp.
+     * @param categoryId ID danh mục cần cập nhật.
+     * @param request Dữ liệu cập nhật danh mục.
+     * @return Danh mục sau khi cập nhật.
+     * @throws InvalidCategoryException Nếu ID hoặc dữ liệu không hợp lệ.
+     * @throws CategoryNotFoundException Nếu không tìm thấy danh mục.
+     * @throws DuplicateCategoryException Nếu tên đã được danh mục khác sử dụng.
      */
-    fun update(id: Long, request: CategoryRequest): Category {
-        validateId(id)
-
-        if (repository.findById(id) == null) {
-            throw CategoryNotFoundException()
+    fun updateCategory(
+        categoryId: Long,
+        request: UpdateCategoryRequest
+    ): Category {
+        if (categoryId <= 0) {
+            throw InvalidCategoryException(
+                "ID danh mục phải lớn hơn 0."
+            )
         }
 
-        val name = validateName(request.categoryName)
-        val description = normalizeDescription(request.description)
-        val status = validateStatus(request.status)
-
-        if (repository.existsByName(name, excludeId = id)) {
-            throw DuplicateCategoryException()
-        }
-
-        return repository.update(id, name, description, status)
+        val existingCategory = categoryRepository.findById(categoryId)
             ?: throw CategoryNotFoundException()
+
+        if (!existingCategory.isActive) {
+            throw InvalidCategoryException(
+                "Không thể cập nhật danh mục đã ngừng hoạt động."
+            )
+        }
+
+        val categoryName = request.categoryName.trim()
+        val description = request.description
+            ?.trim()
+            ?.ifEmpty { null }
+
+        validateCategoryData(categoryName, description)
+
+        if (categoryRepository.existsByName(categoryName, categoryId)) {
+            throw DuplicateCategoryException()
+        }
+
+        return categoryRepository.update(
+            categoryId = categoryId,
+            categoryName = categoryName,
+            description = description
+        ) ?: throw CategoryNotFoundException()
     }
 
     /**
-     * Xóa một danh mục khỏi hệ thống dựa trên định danh (ID).
+     * Ngừng hoạt động danh mục mà không xóa dữ liệu vật lý.
      *
-     * @param id Định danh duy nhất của danh mục cần xóa.
-     * @throws InvalidCategoryException nếu ID không hợp lệ.
-     * @throws CategoryNotFoundException nếu không tìm thấy danh mục cần xóa.
-     * @throws CategoryInUseException nếu danh mục đang được sản phẩm sử dụng.
+     * Không cho phép ngừng hoạt động nếu vẫn còn sản phẩm
+     * đang hoạt động thuộc danh mục đó.
+     *
+     * @param categoryId ID danh mục cần ngừng hoạt động.
+     * @return true nếu thao tác thành công.
+     * @throws InvalidCategoryException Nếu ID không hợp lệ.
+     * @throws CategoryNotFoundException Nếu không tìm thấy danh mục.
+     * @throws CategoryInUseException Nếu còn sản phẩm đang hoạt động.
      */
-
-    fun delete(id: Long) {
-        validateId(id)
-
-        if (repository.findById(id) == null) {
-            throw CategoryNotFoundException()
+    fun deactivateCategory(categoryId: Long): Boolean {
+        if (categoryId <= 0) {
+            throw InvalidCategoryException(
+                "ID danh mục phải lớn hơn 0."
+            )
         }
 
-        if (repository.hasProducts(id)) {
+        val category = categoryRepository.findById(categoryId)
+            ?: throw CategoryNotFoundException()
+
+        if (!category.isActive) {
+            throw InvalidCategoryException(
+                "Danh mục đã ngừng hoạt động."
+            )
+        }
+
+        if (categoryRepository.hasActiveProducts(categoryId)) {
             throw CategoryInUseException()
         }
 
-        if (!repository.delete(id)) {
+        val deactivated = categoryRepository.deactivate(categoryId)
+
+        if (!deactivated) {
             throw CategoryNotFoundException()
         }
+
+        return true
     }
 
     /**
-     * Kiểm tra tính hợp lệ của định danh (ID) danh mục.
+     * Kiểm tra dữ liệu danh mục trước khi tạo hoặc cập nhật.
      *
-     * @param id Định danh cần kiểm tra.
-     * @throws InvalidCategoryException nếu ID nhỏ hơn hoặc bằng 0.
+     * @param categoryName Tên danh mục sau khi loại bỏ khoảng trắng.
+     * @param description Mô tả danh mục, có thể null.
+     * @throws InvalidCategoryException Nếu dữ liệu không hợp lệ.
      */
-    private fun validateId(id: Long) {
-        if (id <= 0) {
-            throw InvalidCategoryException("ID danh mục phải lớn hơn 0")
-        }
-    }
-
-    /**
-     * Kiểm tra và làm sạch tên danh mục.
-     *
-     * @param value Chuỗi tên danh mục cần kiểm tra.
-     * @return Tên danh mục sau khi đã được chuẩn hóa.
-     * @throws InvalidCategoryException nếu tên trống hoặc vượt quá độ dài cho phép.
-     */
-    private fun validateName(value: String): String {
-        val name = value.trim()
-
-        if (name.isEmpty()) {
-            throw InvalidCategoryException("Tên danh mục không được để trống")
-        }
-
-        if (name.length > 120) {
+    private fun validateCategoryData(
+        categoryName: String,
+        description: String?
+    ) {
+        if (categoryName.isBlank()) {
             throw InvalidCategoryException(
-                "Tên danh mục không được vượt quá 120 ký tự"
+                "Tên danh mục không được để trống."
             )
         }
 
-        return name
-    }
-
-    /**
-     * Chuẩn hóa mô tả danh mục (loại bỏ khoảng trắng thừa, trả về `null` nếu trống).
-     *
-     * @param value Chuỗi mô tả cần chuẩn hóa.
-     * @return Chuỗi mô tả đã chuẩn hóa hoặc `null`.
-     */
-    private fun normalizeDescription(value: String?): String? {
-        return value?.trim()?.takeIf { it.isNotEmpty() }
-    }
-
-    /**
-     * Kiểm tra tính hợp lệ của trạng thái danh mục.
-     *
-     * @param value Chuỗi trạng thái cần kiểm tra.
-     * @return Chuỗi trạng thái đã viết hoa chuẩn hóa.
-     * @throws InvalidCategoryException nếu trạng thái không hợp lệ.
-     */
-    private fun validateStatus(value: String): String {
-        val status = value.trim().uppercase()
-
-        if (status !in setOf("ACTIVE", "INACTIVE")) {
+        if (categoryName.length > 100) {
             throw InvalidCategoryException(
-                "Trạng thái chỉ được là ACTIVE hoặc INACTIVE"
+                "Tên danh mục không được vượt quá 100 ký tự."
             )
         }
 
-        return status
+        if (description != null && description.length > 500) {
+            throw InvalidCategoryException(
+                "Mô tả danh mục không được vượt quá 500 ký tự."
+            )
+        }
     }
 }

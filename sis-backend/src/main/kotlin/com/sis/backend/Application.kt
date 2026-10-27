@@ -85,6 +85,7 @@ fun Application.module() {
         }
 
         // CRUD danh mục - Task 9
+
         categoryRoutes(
             CategoryController(
                 CategoryService(
@@ -92,6 +93,7 @@ fun Application.module() {
                 )
             )
         )
+
 
         // CRUD sản phẩm - Task 10
         productRoutes(

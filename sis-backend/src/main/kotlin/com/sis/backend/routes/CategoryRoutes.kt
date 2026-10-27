@@ -1,156 +1,95 @@
 package com.sis.backend.routes
 
 import com.sis.backend.controller.CategoryController
-import com.sis.backend.dto.CategoryRequest
-import com.sis.backend.exception.CategoryException
-import com.sis.backend.exception.CategoryInUseException
-import com.sis.backend.exception.CategoryNotFoundException
-import com.sis.backend.exception.DuplicateCategoryException
-import com.sis.backend.exception.InvalidCategoryException
+import com.sis.backend.repository.CategoryRepository
+import com.sis.backend.service.CategoryService
+import io.ktor.server.application.call
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
+import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
+import io.ktor.server.routing.post
+import io.ktor.server.routing.put
+import io.ktor.server.routing.route
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.receive
 import io.ktor.server.response.respond
-import io.ktor.server.routing.*
 
 /**
- * Định nghĩa các tuyến đường định tuyến (routes) cho các thao tác quản lý danh mục.
+ * Khai báo các API quản lý danh mục sản phẩm.
  *
- * @param controller Bộ điều khiển [CategoryController] xử lý logic nghiệp vụ của danh mục.
+ * @param categoryController Controller xử lý các yêu cầu danh mục.
  */
-fun Route.categoryRoutes(controller: CategoryController) {
+fun Route.categoryRoutes(categoryController: CategoryController) {
     route("/api/categories") {
 
-        // GET /api/categories
+        /**
+         * GET /api/categories
+         * Lấy danh sách danh mục, hỗ trợ tìm kiếm và lọc trạng thái.
+         */
         get {
-            try {
-                call.respond(controller.getAll())
-            } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    mapOf("message" to "Không thể lấy danh sách danh mục")
-                )
-            }
+            categoryController.getCategories(call)
         }
 
-        // GET /api/categories/{id}
+        /**
+         * GET /api/categories/{id}
+         * Lấy thông tin chi tiết một danh mục.
+         */
         get("/{id}") {
-            val id = call.parameters["id"]?.toLongOrNull()
+            val categoryId = call.parameters["id"]?.toLongOrNull()
 
-            if (id == null || id <= 0) {
+            if (categoryId == null || categoryId <= 0) {
                 call.respond(
-                    HttpStatusCode.BadRequest,
-                    mapOf("message" to "ID danh mục không hợp lệ")
+                    io.ktor.http.HttpStatusCode.BadRequest,
+                    mapOf("message" to "ID danh mục không hợp lệ.")
                 )
                 return@get
             }
 
-            try {
-                call.respond(controller.getById(id))
-            } catch (e: Exception) {
-                call.respondCategoryError(e)
-            }
+            categoryController.getCategoryById(call, categoryId)
         }
 
-        // POST /api/categories
+        /**
+         * POST /api/categories
+         * Tạo danh mục mới.
+         */
         post {
-            try {
-                val request = call.receive<CategoryRequest>()
-                call.respond(
-                    HttpStatusCode.Created,
-                    controller.create(request)
-                )
-            } catch (e: Exception) {
-                call.respondCategoryError(e)
-            }
+            categoryController.createCategory(call)
         }
 
-        // PUT /api/categories/{id}
+        /**
+         * PUT /api/categories/{id}
+         * Cập nhật thông tin danh mục.
+         */
         put("/{id}") {
-            val id = call.parameters["id"]?.toLongOrNull()
+            val categoryId = call.parameters["id"]?.toLongOrNull()
 
-            if (id == null || id <= 0) {
+            if (categoryId == null || categoryId <= 0) {
                 call.respond(
-                    HttpStatusCode.BadRequest,
-                    mapOf("message" to "ID danh mục không hợp lệ")
+                    io.ktor.http.HttpStatusCode.BadRequest,
+                    mapOf("message" to "ID danh mục không hợp lệ.")
                 )
                 return@put
             }
 
-            try {
-                val request = call.receive<CategoryRequest>()
-                call.respond(controller.update(id, request))
-            } catch (e: Exception) {
-                call.respondCategoryError(e)
-            }
+            categoryController.updateCategory(call, categoryId)
         }
 
-        // DELETE /api/categories/{id}
-        delete("/{id}") {
-            val id = call.parameters["id"]?.toLongOrNull()
+        /**
+         * PATCH /api/categories/{id}/deactivate
+         * Ngừng hoạt động danh mục mà không xóa vật lý.
+         */
+        patch("/{id}/deactivate") {
+            val categoryId = call.parameters["id"]?.toLongOrNull()
 
-            if (id == null || id <= 0) {
+            if (categoryId == null || categoryId <= 0) {
                 call.respond(
-                    HttpStatusCode.BadRequest,
-                    mapOf("message" to "ID danh mục không hợp lệ")
+                    io.ktor.http.HttpStatusCode.BadRequest,
+                    mapOf("message" to "ID danh mục không hợp lệ.")
                 )
-                return@delete
+                return@patch
             }
 
-            try {
-                controller.delete(id)
-                call.respond(
-                    HttpStatusCode.OK,
-                    mapOf("message" to "Xóa danh mục thành công")
-                )
-            } catch (e: Exception) {
-                call.respondCategoryError(e)
-            }
+            categoryController.deactivateCategory(call, categoryId)
         }
-    }
-}
-
-/**
- * Xử lý ngoại lệ và ánh xạ sang mã phản hồi HTTP tương ứng cho các yêu cầu liên quan đến danh mục.
- *
- * @param e Ngoại lệ [Exception] phát sinh trong quá trình xử lý yêu cầu.
- */
-private suspend fun io.ktor.server.application.ApplicationCall
-        .respondCategoryError(e: Exception) {
-    when (e) {
-        is CategoryNotFoundException ->
-            respond(
-                HttpStatusCode.NotFound,
-                mapOf("message" to (e.message ?: "Không tìm thấy danh mục"))
-            )
-
-        is DuplicateCategoryException ->
-            respond(
-                HttpStatusCode.Conflict,
-                mapOf("message" to (e.message ?: "Tên danh mục đã tồn tại"))
-            )
-
-        is CategoryInUseException ->
-            respond(
-                HttpStatusCode.Conflict,
-                mapOf("message" to (e.message ?: "Danh mục đang được sử dụng"))
-            )
-
-        is InvalidCategoryException ->
-            respond(
-                HttpStatusCode.BadRequest,
-                mapOf("message" to (e.message ?: "Dữ liệu không hợp lệ"))
-            )
-
-        is CategoryException ->
-            respond(
-                HttpStatusCode.BadRequest,
-                mapOf("message" to e.message)
-            )
-
-        else ->
-            respond(
-                HttpStatusCode.InternalServerError,
-                mapOf("message" to "Đã xảy ra lỗi khi xử lý danh mục")
-            )
     }
 }

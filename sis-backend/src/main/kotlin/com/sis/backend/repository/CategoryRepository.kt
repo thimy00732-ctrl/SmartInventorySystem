@@ -1,215 +1,283 @@
 package com.sis.backend.repository
 
 import com.sis.backend.entity.Category
-import com.sis.backend.mapper.mapCategory
-import java.sql.Connection
+import java.sql.ResultSet
+import java.sql.Statement
+import java.sql.Types
 import javax.sql.DataSource
 
 /**
- * Lớp kho lưu trữ (repository) quản lý các thao tác cơ sở dữ liệu cho thực thể danh mục.
+ * Repository thực hiện các thao tác truy vấn dữ liệu danh mục trong MySQL.
  *
- * @property dataSource Nguồn dữ liệu kết nối cơ sở dữ liệu ([DataSource]).
+ * Sử dụng JDBC để truy cập database thông qua DataSource được inject.
+ * Danh mục được ngừng hoạt động thay vì xóa vật lý nhằm bảo toàn dữ liệu liên quan.
+ *
+ * @property dataSource DataSource dùng cho các truy vấn của repository.
  */
 class CategoryRepository(
     private val dataSource: DataSource
 ) {
+
     /**
-     * Lấy danh sách toàn bộ các danh mục được sắp xếp theo ID giảm dần.
+     * Chuyển một dòng dữ liệu từ ResultSet thành đối tượng Category.
      *
-     * @return Danh sách các đối tượng [Category].
+     * @param result ResultSet chứa dữ liệu danh mục.
+     * @return Đối tượng Category tương ứng.
      */
-    fun findAll(): List<Category> {
+    private fun mapRow(result: ResultSet): Category {
+        return Category(
+            categoryId = result.getLong("category_id"),
+            categoryName = result.getString("category_name"),
+            description = result.getString("description"),
+            isActive = result.getBoolean("is_active"),
+            createdAt = result.getTimestamp("created_at")
+                ?.toLocalDateTime()
+                ?.toString(),
+            updatedAt = result.getTimestamp("updated_at")
+                ?.toLocalDateTime()
+                ?.toString()
+        )
+    }
+
+    /**
+     * Lấy danh sách danh mục, hỗ trợ tìm kiếm theo tên.
+     *
+     * @param keyword Từ khóa tìm kiếm; null hoặc rỗng để lấy tất cả.
+     * @param activeOnly Chỉ lấy danh mục đang hoạt động nếu là true.
+     * @return Danh sách danh mục phù hợp.
+     */
+    fun findAll(
+        keyword: String? = null,
+        activeOnly: Boolean = false
+    ): List<Category> {
         val sql = """
             SELECT category_id, category_name, description,
-                   status, created_at, updated_at
+                   is_active, created_at, updated_at
             FROM categories
+            WHERE (? IS NULL OR ? = '' OR category_name LIKE ?)
+              AND (? = FALSE OR is_active = TRUE)
             ORDER BY category_id DESC
         """.trimIndent()
 
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                stmt.executeQuery().use { rs ->
-                    val categories = mutableListOf<Category>()
-                    while (rs.next()) {
-                        categories.add(mapCategory(rs))
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                val searchKeyword = keyword?.trim()
+
+                statement.setString(1, searchKeyword)
+                statement.setString(2, searchKeyword)
+                statement.setString(
+                    3,
+                    searchKeyword?.let { "%$it%" }
+                )
+                statement.setBoolean(4, activeOnly)
+
+                statement.executeQuery().use { result ->
+                    buildList {
+                        while (result.next()) {
+                            add(mapRow(result))
+                        }
                     }
-                    return categories
                 }
             }
         }
     }
 
     /**
-     * Tìm kiếm một danh mục dựa trên định danh (ID).
+     * Tìm danh mục theo ID.
      *
-     * @param id Định danh duy nhất của danh mục cần tìm.
-     * @return Đối tượng [Category] nếu tìm thấy, ngược lại trả về `null`.
+     * @param categoryId ID danh mục cần tìm.
+     * @return Danh mục nếu tồn tại, ngược lại trả về null.
      */
-    fun findById(id: Long): Category? {
+    fun findById(categoryId: Long): Category? {
         val sql = """
             SELECT category_id, category_name, description,
-                   status, created_at, updated_at
+                   is_active, created_at, updated_at
             FROM categories
             WHERE category_id = ?
         """.trimIndent()
 
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                stmt.setLong(1, id)
-                stmt.executeQuery().use { rs ->
-                    return if (rs.next()) mapCategory(rs) else null
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+
+                statement.executeQuery().use { result ->
+                    if (result.next()) mapRow(result) else null
                 }
             }
         }
     }
 
     /**
-     * Kiểm tra xem tên danh mục đã tồn tại trong hệ thống hay chưa, hỗ trợ loại trừ theo ID khi cập nhật.
+     * Kiểm tra tên danh mục đã tồn tại hay chưa.
      *
-     * @param name Tên danh mục cần kiểm tra.
-     * @param excludeId Định danh danh mục cần loại trừ khỏi kết quả kiểm tra (tùy chọn).
-     * @return `true` nếu tên danh mục đã tồn tại, ngược lại trả về `false`.
+     * So sánh không phân biệt chữ hoa, chữ thường và bỏ khoảng trắng
+     * ở đầu, cuối tên.
+     *
+     * @param categoryName Tên danh mục cần kiểm tra.
+     * @param excludeId ID danh mục bỏ qua khi cập nhật; null khi tạo mới.
+     * @return true nếu tên danh mục đã tồn tại.
      */
     fun existsByName(
-        name: String,
+        categoryName: String,
         excludeId: Long? = null
     ): Boolean {
-        val sql = if (excludeId == null) {
-            "SELECT 1 FROM categories WHERE LOWER(category_name) = LOWER(?) LIMIT 1"
-        } else {
-            """
-            SELECT 1 FROM categories
-            WHERE LOWER(category_name) = LOWER(?)
-              AND category_id <> ?
-            LIMIT 1
-            """.trimIndent()
-        }
-
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                stmt.setString(1, name)
-
-                if (excludeId != null) {
-                    stmt.setLong(2, excludeId)
-                }
-
-                stmt.executeQuery().use { rs ->
-                    return rs.next()
-                }
-            }
-        }
-    }
-
-    /**
-     * Thêm mới một bản ghi danh mục vào cơ sở dữ liệu.
-     *
-     * @param name Tên của danh mục.
-     * @param description Mô tả chi tiết về danh mục.
-     * @param status Trạng thái hoạt động của danh mục.
-     * @return Đối tượng [Category] vừa được tạo thành công.
-     */
-    fun create(
-        name: String,
-        description: String?,
-        status: String
-    ): Category {
         val sql = """
-            INSERT INTO categories (category_name, description, status)
-            VALUES (?, ?, ?)
+            SELECT COUNT(*)
+            FROM categories
+            WHERE LOWER(TRIM(category_name)) = LOWER(TRIM(?))
+              AND (? IS NULL OR category_id <> ?)
         """.trimIndent()
 
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(
-                sql,
-                java.sql.Statement.RETURN_GENERATED_KEYS
-            ).use { stmt ->
-                stmt.setString(1, name)
-                stmt.setString(2, description)
-                stmt.setString(3, status)
-                stmt.executeUpdate()
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, categoryName.trim())
 
-                stmt.generatedKeys.use { keys ->
-                    check(keys.next()) {
-                        "Không lấy được ID danh mục vừa tạo"
-                    }
-                    return findById(keys.getLong(1))
-                        ?: error("Không tìm thấy danh mục vừa tạo")
+                if (excludeId == null) {
+                    statement.setNull(2, Types.BIGINT)
+                    statement.setNull(3, Types.BIGINT)
+                } else {
+                    statement.setLong(2, excludeId)
+                    statement.setLong(3, excludeId)
+                }
+
+                statement.executeQuery().use { result ->
+                    result.next() && result.getInt(1) > 0
                 }
             }
         }
     }
 
     /**
-     * Cập nhật thông tin của một danh mục hiện có trong cơ sở dữ liệu.
+     * Kiểm tra danh mục có sản phẩm đang hoạt động hay không.
      *
-     * @param id Định danh duy nhất của danh mục cần cập nhật.
-     * @param name Tên mới của danh mục.
+     * @param categoryId ID danh mục cần kiểm tra.
+     * @return true nếu tồn tại sản phẩm đang hoạt động thuộc danh mục.
+     */
+    fun hasActiveProducts(categoryId: Long): Boolean {
+        val sql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM products
+                WHERE category_id = ?
+                  AND is_active = TRUE
+            )
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+
+                statement.executeQuery().use { result ->
+                    result.next() && result.getBoolean(1)
+                }
+            }
+        }
+    }
+
+    /**
+     * Thêm danh mục mới vào database.
+     *
+     * @param category Thông tin danh mục cần thêm.
+     * @return Danh mục vừa tạo, bao gồm ID do database sinh ra.
+     * @throws IllegalStateException Nếu không lấy được ID hoặc không tìm thấy
+     * danh mục sau khi thêm.
+     */
+    fun create(category: Category): Category {
+        val sql = """
+            INSERT INTO categories (
+                category_name,
+                description,
+                is_active
+            )
+            VALUES (?, ?, TRUE)
+        """.trimIndent()
+
+        val generatedId = dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                sql,
+                Statement.RETURN_GENERATED_KEYS
+            ).use { statement ->
+                statement.setString(1, category.categoryName.trim())
+                statement.setString(2, category.description)
+
+                statement.executeUpdate()
+
+                statement.generatedKeys.use { keys ->
+                    if (keys.next()) {
+                        keys.getLong(1)
+                    } else {
+                        throw IllegalStateException(
+                            "Không lấy được ID danh mục vừa tạo."
+                        )
+                    }
+                }
+            }
+        }
+
+        return findById(generatedId)
+            ?: throw IllegalStateException(
+                "Không tìm thấy danh mục vừa tạo."
+            )
+    }
+
+    /**
+     * Cập nhật tên và mô tả của danh mục.
+     *
+     * @param categoryId ID danh mục cần cập nhật.
+     * @param categoryName Tên danh mục mới.
      * @param description Mô tả mới của danh mục.
-     * @param status Trạng thái mới của danh mục.
-     * @return Đối tượng [Category] sau khi được cập nhật, hoặc `null` nếu không tìm thấy.
+     * @return Danh mục sau cập nhật hoặc null nếu không tìm thấy.
      */
     fun update(
-        id: Long,
-        name: String,
-        description: String?,
-        status: String
+        categoryId: Long,
+        categoryName: String,
+        description: String?
     ): Category? {
         val sql = """
             UPDATE categories
-            SET category_name = ?, description = ?, status = ?
+            SET category_name = ?,
+                description = ?,
+                updated_at = CURRENT_TIMESTAMP
             WHERE category_id = ?
         """.trimIndent()
 
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                stmt.setString(1, name)
-                stmt.setString(2, description)
-                stmt.setString(3, status)
-                stmt.setLong(4, id)
-                stmt.executeUpdate()
+        val affectedRows = dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setString(1, categoryName.trim())
+                statement.setString(2, description)
+                statement.setLong(3, categoryId)
+
+                statement.executeUpdate()
             }
         }
 
-        return findById(id)
+        return if (affectedRows == 0) {
+            null
+        } else {
+            findById(categoryId)
+        }
     }
 
     /**
-     * Kiểm tra xem danh mục có đang được sử dụng bởi sản phẩm nào hay không.
+     * Ngừng hoạt động danh mục mà không xóa vật lý dữ liệu.
      *
-     * @param id Định danh duy nhất của danh mục cần kiểm tra.
-     * @return `true` nếu có sản phẩm thuộc danh mục này, ngược lại trả về `false`.
+     * @param categoryId ID danh mục cần ngừng hoạt động.
+     * @return true nếu có bản ghi được cập nhật; false nếu không tìm thấy
+     * hoặc danh mục đã ngừng hoạt động.
      */
-    fun hasProducts(id: Long): Boolean {
+    fun deactivate(categoryId: Long): Boolean {
         val sql = """
-            SELECT 1 FROM products
+            UPDATE categories
+            SET is_active = FALSE,
+                updated_at = CURRENT_TIMESTAMP
             WHERE category_id = ?
-            LIMIT 1
+              AND is_active = TRUE
         """.trimIndent()
 
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                stmt.setLong(1, id)
-                stmt.executeQuery().use { rs ->
-                    return rs.next()
-                }
-            }
-        }
-    }
-
-    /**
-     * Xóa một danh mục khỏi cơ sở dữ liệu dựa trên định danh (ID).
-     *
-     * @param id Định danh duy nhất của danh mục cần xóa.
-     * @return `true` nếu xóa thành công, ngược lại trả về `false`.
-     */
-
-    fun delete(id: Long): Boolean {
-        val sql = "DELETE FROM categories WHERE category_id = ?"
-
-        dataSource.connection.use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
-                stmt.setLong(1, id)
-                return stmt.executeUpdate() > 0
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+                statement.executeUpdate() > 0
             }
         }
     }

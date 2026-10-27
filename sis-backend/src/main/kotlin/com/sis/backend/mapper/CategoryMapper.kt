@@ -1,21 +1,45 @@
+
 package com.sis.backend.mapper
 
+import com.sis.backend.dto.CategoryResponse
 import com.sis.backend.entity.Category
-import java.sql.ResultSet
 
 /**
- * Ánh xạ bản ghi từ ResultSet sang đối tượng Category.
+ * Chuyển đổi dữ liệu danh mục giữa Entity và DTO.
  *
- * @param rs ResultSet chứa dữ liệu bản ghi từ cơ sở dữ liệu.
- * @return Đối tượng Category tương ứng.
+ * Mapper giúp tách biệt cấu trúc dữ liệu nội bộ
+ * với cấu trúc dữ liệu trả về cho client.
  */
-fun mapCategory(rs: ResultSet): Category {
-    return Category(
-        categoryId = rs.getLong("category_id"),
-        categoryName = rs.getString("category_name"),
-        description = rs.getString("description"),
-        status = rs.getString("status"),
-        createdAt = rs.getTimestamp("created_at").toString(),
-        updatedAt = rs.getTimestamp("updated_at").toString()
-    )
+object CategoryMapper {
+
+    /**
+     * Chuyển đổi Category Entity thành CategoryResponse.
+     *
+     * @param category Entity danh mục cần chuyển đổi.
+     * @return DTO chứa thông tin danh mục trả về cho client.
+     */
+    fun toResponse(category: Category): CategoryResponse {
+        return CategoryResponse(
+            categoryId = requireNotNull(category.categoryId) {
+                "ID danh mục không được null khi trả dữ liệu."
+            },
+            categoryName = category.categoryName,
+            description = category.description,
+            isActive = category.isActive,
+            createdAt = category.createdAt,
+            updatedAt = category.updatedAt
+        )
+    }
+
+    /**
+     * Chuyển đổi danh sách Entity thành danh sách DTO.
+     *
+     * @param categories Danh sách Entity danh mục.
+     * @return Danh sách DTO danh mục.
+     */
+    fun toResponseList(
+        categories: List<Category>
+    ): List<CategoryResponse> {
+        return categories.map(::toResponse)
+    }
 }

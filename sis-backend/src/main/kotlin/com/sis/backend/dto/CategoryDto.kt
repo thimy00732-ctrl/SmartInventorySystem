@@ -3,35 +3,45 @@ package com.sis.backend.dto
 import kotlinx.serialization.Serializable
 
 /**
- * Dữ liệu yêu cầu dùng để tạo mới hoặc cập nhật một danh mục.
+ * DTO chứa dữ liệu yêu cầu tạo mới danh mục.
  *
- * @property categoryName Tên của danh mục.
+ * @property categoryName Tên danh mục cần tạo.
  * @property description Mô tả chi tiết về danh mục (có thể để trống).
- * @property status Trạng thái hoạt động của danh mục (mặc định là "ACTIVE").
  */
 @Serializable
-data class CategoryRequest(
+data class CreateCategoryRequest(
     val categoryName: String,
-    val description: String? = null,
-    val status: String = "ACTIVE"
+    val description: String? = null
 )
 
 /**
- * Dữ liệu phản hồi chứa thông tin chi tiết của một danh mục.
+ * DTO chứa dữ liệu yêu cầu cập nhật danh mục.
+ *
+ * @property categoryName Tên mới của danh mục.
+ * @property description Mô tả mới của danh mục (có thể để trống).
+ */
+@Serializable
+data class UpdateCategoryRequest(
+    val categoryName: String,
+    val description: String? = null
+)
+
+/**
+ * DTO biểu diễn thông tin danh mục trả về cho client.
  *
  * @property categoryId Định danh duy nhất của danh mục.
- * @property categoryName Tên của danh mục.
+ * @property categoryName Tên danh mục.
  * @property description Mô tả chi tiết về danh mục.
- * @property status Trạng thái hoạt động của danh mục.
- * @property createdAt Thời điểm khởi tạo danh mục dưới dạng chuỗi.
- * @property updatedAt Thời điểm cập nhật thông tin danh mục gần nhất dưới dạng chuỗi.
+ * @property isActive Trạng thái hoạt động của danh mục.
+ * @property createdAt Thời điểm tạo danh mục.
+ * @property updatedAt Thời điểm cập nhật danh mục gần nhất.
  */
 @Serializable
 data class CategoryResponse(
     val categoryId: Long,
     val categoryName: String,
     val description: String?,
-    val status: String,
-    val createdAt: String,
-    val updatedAt: String
+    val isActive: Boolean,
+    val createdAt: String?,
+    val updatedAt: String?
 )
