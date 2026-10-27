@@ -4,7 +4,7 @@ package com.sis.android.data.remote
 import kotlinx.coroutines.delay
 import java.io.IOException
 
-class MockAuthApi {
+class adMockAuthApi {
 
     suspend fun login(
         username: String,
