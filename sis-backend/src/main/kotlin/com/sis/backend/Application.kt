@@ -12,6 +12,13 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import java.sql.Connection
 import javax.sql.DataSource
+import com.sis.backend.config.configureSecurity
+import com.sis.backend.repository.UserRepository
+import com.sis.backend.routes.authRoutes
+import com.sis.backend.routes.accountRoutes
+import com.sis.backend.security.JwtService
+import com.sis.backend.security.PasswordHasher
+import com.sis.backend.service.AuthService
 
 lateinit var dataSource: DataSource
     private set
@@ -37,7 +44,16 @@ fun Application.module() {
 
     // Khởi tạo kết nối database
     dataSource = DatabaseConfig.createDataSource()
+//moi them
+configureSecurity()
 
+val userRepository = UserRepository(dataSource)
+
+val authService = AuthService(
+    repository = userRepository,
+    jwtService = JwtService(),
+    verifyPassword = PasswordHasher::verifyPassword
+)
     routing {
         get("/health") {
             call.respond(
@@ -46,6 +62,8 @@ fun Application.module() {
                     "service" to "Smart Inventory Backend"
                 )
             )
+            authRoutes(authService)
+accountRoutes(authService)
         }
 
         get("/health/database") {
