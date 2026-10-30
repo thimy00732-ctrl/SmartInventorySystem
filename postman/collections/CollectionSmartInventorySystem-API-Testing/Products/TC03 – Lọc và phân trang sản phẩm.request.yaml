@@ -1,0 +1,10 @@
+$kind: http-request
+url: http://localhost:8080/api/products?categoryId=1&page=1&size=5&sortBy=created_at&sortDirection=DESC
+method: GET
+queryParams:
+  categoryId: "1"
+  page: "1"
+  size: "5"
+  sortBy: created_at
+  sortDirection: DESC
+order: 3000

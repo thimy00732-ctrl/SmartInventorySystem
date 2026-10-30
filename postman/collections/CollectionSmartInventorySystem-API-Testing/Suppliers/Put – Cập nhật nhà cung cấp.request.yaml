@@ -1,0 +1,17 @@
+$kind: http-request
+url: http://localhost:8080/api/suppliers/11
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"supplierName\": \"Công ty TNHH Minh Phát\",\r
+
+    \    \"phone\": \"0905135556\",\r
+
+    \    \"email\": \"minhphat2@example.com\",\r
+
+    \    \"address\": \"Quy Nhơn, Bình Định\"\r
+
+    }"
+order: 5000

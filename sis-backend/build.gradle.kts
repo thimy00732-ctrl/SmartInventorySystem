@@ -26,6 +26,9 @@ dependencies {
     implementation("io.ktor:ktor-server-auth-jvm:3.3.1")
     implementation("io.ktor:ktor-server-auth-jwt-jvm:3.3.1")
 
+    // Status
+    implementation("io.ktor:ktor-server-status-pages-jvm:3.3.1")
+
     // MySQL connection
     implementation("com.zaxxer:HikariCP:6.3.0")
     implementation("com.mysql:mysql-connector-j:9.4.0")
@@ -36,6 +39,8 @@ dependencies {
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.3.1")
+    testImplementation("io.mockk:mockk:1.14.5")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
 }
 
 kotlin {
@@ -49,4 +54,8 @@ kotlin {
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(24)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

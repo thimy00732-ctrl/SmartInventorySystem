@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8080//api/products?keyword=Tai nghe
+method: GET
+queryParams:
+  keyword: Tai nghe
+order: 2000

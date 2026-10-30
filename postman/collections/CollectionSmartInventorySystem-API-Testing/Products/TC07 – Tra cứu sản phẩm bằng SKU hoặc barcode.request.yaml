@@ -1,0 +1,4 @@
+$kind: http-request
+url: http://localhost:8080//api/products/lookup/893000000001
+method: GET
+order: 7000

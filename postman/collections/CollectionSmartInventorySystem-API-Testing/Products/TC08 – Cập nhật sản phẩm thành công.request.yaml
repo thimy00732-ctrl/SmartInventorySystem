@@ -1,0 +1,25 @@
+$kind: http-request
+url: http://localhost:8080/api/products/1
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"sku\": \"SPTEST0001\",\r
+
+    \    \"barcode\": \"2001234567893\",\r
+
+    \    \"productName\": \"Bàn phím cơ Test Updated\",\r
+
+    \    \"unit\": \"Cái\",\r
+
+    \    \"costPrice\": \"270000.00\",\r
+
+    \    \"salePrice\": \"380000.00\",\r
+
+    \    \"minStock\": 5,\r
+
+    \    \"maxStock\": 80\r
+
+    }"
+order: 8690

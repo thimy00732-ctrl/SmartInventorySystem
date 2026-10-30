@@ -1,0 +1,13 @@
+$kind: http-request
+url: http://localhost:8080/api/categories
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"categoryName\": \"Đồ uống\",\r
+
+    \  \"description\": \"Nước uống và các sản phẩm giải khát\"\r
+
+    }"
+order: 3000
