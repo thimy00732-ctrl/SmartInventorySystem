@@ -20,7 +20,10 @@ import com.sis.backend.controller.ProductController
 import com.sis.backend.repository.ProductRepository
 import com.sis.backend.routes.productRoutes
 import com.sis.backend.service.ProductService
-
+import com.sis.backend.repository.SupplierRepository
+import com.sis.backend.service.SupplierService
+import com.sis.backend.controller.SupplierController
+import com.sis.backend.routes.supplierRoutes
 lateinit var dataSource: DataSource
     private set
 
@@ -100,6 +103,16 @@ fun Application.module() {
             ProductController(
                 ProductService(
                     ProductRepository(dataSource)
+                )
+            )
+        )
+
+        //CRUD supplier
+
+        supplierRoutes(
+            SupplierController(
+                SupplierService(
+                    SupplierRepository(dataSource)
                 )
             )
         )

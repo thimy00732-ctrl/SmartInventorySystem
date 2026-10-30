@@ -1,0 +1,7 @@
+$kind: http-request
+url: http://localhost:8080/api/suppliers/search?keyword=namviet@example.com
+method: GET
+queryParams:
+  keyword: namviet@example.com
+examples: .resources/Get – Tìm kiếm nhà cung cấp theo keyword.resources/examples
+order: 6000
