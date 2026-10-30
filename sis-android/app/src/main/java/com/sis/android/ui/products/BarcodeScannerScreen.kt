@@ -4,14 +4,39 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,7 +48,10 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.sis.android.data.model.Product
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalGetImage::class
+)
 @Composable
 fun BarcodeScannerScreen(
     products: List<Product>,
@@ -58,10 +86,15 @@ fun BarcodeScannerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Quét Barcode Sản Phẩm") },
+                title = {
+                    Text("Quét Barcode Sản Phẩm")
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Quay lại"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -71,44 +104,65 @@ fun BarcodeScannerScreen(
             )
         }
     ) { paddingValues ->
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
             contentAlignment = Alignment.Center
         ) {
+
             if (hasCameraPermission) {
+
                 AndroidView(
                     factory = { ctx ->
                         val previewView = PreviewView(ctx)
-                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                        val cameraProviderFuture =
+                            ProcessCameraProvider.getInstance(ctx)
 
                         cameraProviderFuture.addListener({
+
                             val cameraProvider = cameraProviderFuture.get()
-                            val preview = Preview.Builder().build().also {
-                                it.setSurfaceProvider(previewView.surfaceProvider)
-                            }
+
+                            val preview = Preview.Builder()
+                                .build()
+                                .also {
+                                    it.setSurfaceProvider(
+                                        previewView.surfaceProvider
+                                    )
+                                }
 
                             val barcodeScanner = BarcodeScanning.getClient()
+
                             val imageAnalysis = ImageAnalysis.Builder()
-                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .setBackpressureStrategy(
+                                    ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                                )
                                 .build()
 
-                            imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
-                                val mediaImage = imageProxy.image
+                            imageAnalysis.setAnalyzer(
+                                ContextCompat.getMainExecutor(ctx)
+                            ) { imageProxy ->
+
+                                // Lấy ảnh camera với opt-in đặt ngay tại hàm sử dụng API
+                                val mediaImage = getMediaImage(imageProxy)
+
                                 if (mediaImage != null) {
                                     val image = InputImage.fromMediaImage(
                                         mediaImage,
                                         imageProxy.imageInfo.rotationDegrees
                                     )
+
                                     barcodeScanner.process(image)
                                         .addOnSuccessListener { barcodes ->
                                             for (barcode in barcodes) {
                                                 barcode.rawValue?.let { scannedCode ->
-                                                    // Tra cứu sản phẩm trong danh sách theo Barcode hoặc SKU
-                                                    val matchedProduct = products.find {
-                                                        it.barcode == scannedCode || it.sku == scannedCode
-                                                    }
+                                                    val matchedProduct =
+                                                        products.find {
+                                                            it.barcode == scannedCode ||
+                                                                    it.sku == scannedCode
+                                                        }
+
                                                     if (matchedProduct != null) {
                                                         onProductFound(matchedProduct)
                                                     } else {
@@ -118,11 +172,12 @@ fun BarcodeScannerScreen(
                                             }
                                         }
                                         .addOnFailureListener {
-                                            // Xử lý lỗi phân tích nếu có
+                                            // Xử lý lỗi đọc mã vạch nếu cần
                                         }
                                         .addOnCompleteListener {
                                             imageProxy.close()
                                         }
+
                                 } else {
                                     imageProxy.close()
                                 }
@@ -139,6 +194,7 @@ fun BarcodeScannerScreen(
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
+
                         }, ContextCompat.getMainExecutor(ctx))
 
                         previewView
@@ -146,12 +202,13 @@ fun BarcodeScannerScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Khung hướng dẫn quét ở giữa màn hình
                 Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(32.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
                     Text(
                         text = "Đưa mã vạch vào giữa khung hình để quét...",
@@ -161,6 +218,7 @@ fun BarcodeScannerScreen(
                 }
 
             } else {
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
@@ -170,8 +228,14 @@ fun BarcodeScannerScreen(
                         text = "Ứng dụng cần quyền sử dụng Camera để quét mã vạch.",
                         style = MaterialTheme.typography.bodyLarge
                     )
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
+
+                    Button(
+                        onClick = {
+                            launcher.launch(Manifest.permission.CAMERA)
+                        }
+                    ) {
                         Text("Cấp quyền Camera")
                     }
                 }
@@ -179,3 +243,10 @@ fun BarcodeScannerScreen(
         }
     }
 }
+
+/**
+ * Lấy ảnh từ ImageProxy.
+ * Opt-in được đặt trực tiếp tại hàm sử dụng ExperimentalGetImage.
+ */
+@OptIn(ExperimentalGetImage::class)
+private fun getMediaImage(imageProxy: ImageProxy) = imageProxy.image

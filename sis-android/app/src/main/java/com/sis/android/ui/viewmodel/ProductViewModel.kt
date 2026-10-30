@@ -10,50 +10,110 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+sealed interface ProductUiState {
+    object Loading : ProductUiState
+    data class Success(
+        val products: List<Product>,
+        val totalStock: Double,
+        val totalReserved: Double,
+        val totalAvailable: Double,
+        val lowStockCount: Int,
+        val nearExpiryCount: Int
+    ) : ProductUiState
+    data class Error(val message: String) : ProductUiState
+}
+
 class ProductViewModel(
     private val repository: ProductRepository = ProductRepository()
 ) : ViewModel() {
 
-    private val _products = MutableStateFlow<List<Product>>(emptyList())
-    val products: StateFlow<List<Product>> = _products.asStateFlow()
+    private val _uiState = MutableStateFlow<ProductUiState>(ProductUiState.Loading)
+    val uiState: StateFlow<ProductUiState> = _uiState.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _selectedTab = MutableStateFlow("ALL") // "ALL", "LOW_STOCK", "EXPIRING"
+    val selectedTab: StateFlow<String> = _selectedTab.asStateFlow()
+
+    private var allProductsCache = listOf<Product>()
 
     init {
         loadProducts()
     }
 
-    private fun loadProducts() {
+    fun loadProducts(simulateEmpty: Boolean = false, simulateError: Boolean = false) {
         viewModelScope.launch {
+            _uiState.value = ProductUiState.Loading
             try {
-                // Gọi suspend fun trực tiếp để lấy danh sách Product
-                val list = repository.getProducts()
-                _products.value = list
+                val list = repository.getProducts(simulateEmpty, simulateError)
+                allProductsCache = list
+                updateFilteredState()
             } catch (e: Exception) {
-                // Bắt lỗi nếu gọi repository gặp exception (ví dụ simulateError = true)
-                _products.value = emptyList()
+                _uiState.value = ProductUiState.Error(e.localizedMessage ?: "Đã xảy ra lỗi không xác định")
             }
         }
     }
 
-    // Thêm sản phẩm mới
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+        updateFilteredState()
+    }
+
+    fun setSelectedTab(tab: String) {
+        _selectedTab.value = tab
+        updateFilteredState()
+    }
+
+    private fun updateFilteredState() {
+        val query = _searchQuery.value.trim().lowercase()
+        val tab = _selectedTab.value
+
+        val filtered = allProductsCache.filter { product ->
+            val matchesSearch = query.isEmpty() ||
+                    product.productName.lowercase().contains(query) ||
+                    product.sku.lowercase().contains(query) ||
+                    (product.barcode != null && product.barcode.contains(query))
+
+            val matchesTab = when (tab) {
+                "LOW_STOCK" -> product.availableQuantity <= product.minStock
+                "EXPIRING" -> false // Giả lập logic cận hạn (có thể bổ sung khi có hạn sử dụng chi tiết)
+                else -> true
+            }
+
+            matchesSearch && matchesTab
+        }
+
+        // Tính toán các chỉ số tổng hợp thống kê cho Dashboard Header
+        val totalStock = allProductsCache.sumOf { it.stockQuantity }
+        val totalReserved = allProductsCache.sumOf { it.reservedQuantity }
+        val totalAvailable = allProductsCache.sumOf { it.availableQuantity }
+        val lowStockCount = allProductsCache.count { it.availableQuantity <= it.minStock }
+        val nearExpiryCount = 5 // Giá trị demo theo UI Figma
+
+        _uiState.value = ProductUiState.Success(
+            products = filtered,
+            totalStock = totalStock,
+            totalReserved = totalReserved,
+            totalAvailable = totalAvailable,
+            lowStockCount = lowStockCount,
+            nearExpiryCount = nearExpiryCount
+        )
+    }
+
+    // Các hàm CRUD hỗ trợ mở rộng cho các nhiệm vụ sau
     fun addProduct(product: Product) {
-        _products.update { currentList ->
-            listOf(product) + currentList
-        }
+        allProductsCache = listOf(product) + allProductsCache
+        updateFilteredState()
     }
 
-    // Cập nhật sản phẩm
-    fun updateProduct(updatedProduct: Product) {
-        _products.update { currentList ->
-            currentList.map { product ->
-                if (product.productId == updatedProduct.productId) updatedProduct else product
-            }
-        }
+    fun updateProduct(updated: Product) {
+        allProductsCache = allProductsCache.map { if (it.productId == updated.productId) updated else it }
+        updateFilteredState()
     }
 
-    // Xóa sản phẩm
     fun deleteProduct(productId: Long) {
-        _products.update { currentList ->
-            currentList.filter { it.productId != productId }
-        }
+        allProductsCache = allProductsCache.filter { it.productId != productId }
+        updateFilteredState()
     }
 }

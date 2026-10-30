@@ -9,7 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sis.android.data.model.Product
-import com.sis.android.ui.products.BarcodeScannerScreen // Import màn hình Scanner vừa tạo
+import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
 import com.sis.android.ui.products.ProductFormScreen
 import com.sis.android.ui.products.ProductListScreen
@@ -26,14 +26,12 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val viewModel: ProductViewModel = viewModel()
-                    val products by viewModel.products.collectAsState()
+                    // Lấy danh sách sản phẩm thông qua UIState mới của ViewModel
+                    val uiState by viewModel.uiState.collectAsState()
 
-                    // Thêm "SCANNER" vào danh sách trạng thái màn hình
                     var currentScreen by remember { mutableStateOf("LIST") }
                     var selectedProduct by remember { mutableStateOf<Product?>(null) }
                     var productToEdit by remember { mutableStateOf<Product?>(null) }
-
-                    // Biến lưu mã barcode không tìm thấy để hiển thị thông báo
                     var notFoundBarcode by remember { mutableStateOf<String?>(null) }
 
                     when (currentScreen) {
@@ -49,19 +47,26 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = "FORM"
                                 },
                                 onScanClick = {
-                                    currentScreen = "SCANNER" // Chuyển sang màn hình quét mã
+                                    currentScreen = "SCANNER"
                                 }
                             )
                         }
                         "SCANNER" -> {
+                            // Lấy danh sách sản phẩm từ UiState nếu thành công để quét mã
+                            val productList = if (uiState is com.sis.android.ui.viewmodel.ProductUiState.Success) {
+                                (uiState as com.sis.android.ui.viewmodel.ProductUiState.Success).products
+                            } else {
+                                emptyList()
+                            }
+
                             BarcodeScannerScreen(
-                                products = products,
+                                products = productList,
                                 onProductFound = { foundProduct ->
                                     selectedProduct = foundProduct
-                                    currentScreen = "DETAIL" // Tìm thấy thì mở chi tiết sản phẩm
+                                    currentScreen = "DETAIL"
                                 },
                                 onBarcodeNotFound = { scannedCode ->
-                                    notFoundBarcode = scannedCode // Kích hoạt hiện thông báo lỗi
+                                    notFoundBarcode = scannedCode
                                 },
                                 onBackClick = { currentScreen = "LIST" }
                             )
@@ -78,6 +83,13 @@ class MainActivity : ComponentActivity() {
                                     onDeleteClick = { deleteProd ->
                                         viewModel.deleteProduct(deleteProd.productId)
                                         currentScreen = "LIST"
+                                    },
+                                    onToggleActiveClick = { toggleProd ->
+                                        // Đảo ngược trạng thái kinh doanh: 1 thành 0 (ngừng kinh doanh) và ngược lại
+                                        val newActiveStatus = if (toggleProd.isActive == 1) 0 else 1
+                                        val updated = toggleProd.copy(isActive = newActiveStatus)
+                                        viewModel.updateProduct(updated)
+                                        selectedProduct = updated // Cập nhật lại state chi tiết đang xem
                                     }
                                 )
                             }
@@ -98,7 +110,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Hộp thoại cảnh báo khi quét trúng mã vạch nhưng không có trong cơ sở dữ liệu
+                    // Hộp thoại cảnh báo khi quét mã không có trong hệ thống
                     notFoundBarcode?.let { code ->
                         AlertDialog(
                             onDismissRequest = { notFoundBarcode = null },
