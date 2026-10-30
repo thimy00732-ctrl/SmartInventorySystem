@@ -1,25 +1,27 @@
 package com.sis.android.ui.products
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sis.android.data.model.Product
+import com.sis.android.ui.components.display.AppCard
+import com.sis.android.ui.components.display.InfoTile
+import com.sis.android.ui.components.display.StatusBadge
+import com.sis.android.ui.components.feedback.ConfirmDialog
+import com.sis.android.ui.components.layout.AppHeader
+import com.sis.android.ui.components.layout.HeaderIconButton
+import com.sis.android.ui.theme.Dimens
 import com.sis.android.ui.theme.color.CrudColors
 import com.sis.android.ui.theme.style.CrudStyles
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(
     product: Product,
@@ -29,109 +31,65 @@ fun ProductDetailScreen(
     onToggleActiveClick: (Product) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val isActive = product.status == "ACTIVE"
 
     Scaffold(
         containerColor = CrudColors.LightGreenBg,
-        topBar = {
-            TopAppBar(
-                title = { Text("Chi tiết sản phẩm") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Xóa", tint = CrudColors.DangerAction)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CrudColors.CardBg)
-            )
-        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onEditClick(product) },
-                containerColor = CrudColors.HeaderBackground,
+                containerColor = CrudColors.Primary,
                 contentColor = Color.White
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
             }
         }
-    ) { paddingValues ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
         ) {
-            // Header áp dụng hiệu ứng chuyển màu (Gradient) rêu đậm chuẩn mẫu
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(CrudColors.PrimaryGradientBrush)
-                    .padding(20.dp)
-            ) {
-                Column {
-                    Text(text = "THỨ TƯ, 25/06/2025", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = product.productName, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(text = "${product.sku} · ${product.warehouseName}", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
+            AppHeader(
+                title = product.productName,
+                subtitle = product.sku,
+                onBack = onBackClick,
+                actions = {
+                    HeaderIconButton(Icons.Default.Delete, "Xóa") { showDeleteDialog = true }
                 }
-            }
+            )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(Dimens.ScreenPadding),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SectionSpacing)
             ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CrudColors.CardBg),
-                    shape = CrudStyles.CardShape,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                AppCard(title = "Thông tin chung") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "Trạng thái kinh doanh", fontWeight = FontWeight.Medium, color = CrudColors.TextPrimary)
-                            Surface(
-                                color = if (product.isActive == 1) CrudColors.StatusActiveBg else CrudColors.StatusInactiveBg,
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = "● ${product.statusText}",
-                                    color = if (product.isActive == 1) CrudColors.StatusActiveText else CrudColors.StatusInactiveText,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                        Text("Trạng thái kinh doanh", color = CrudColors.TextPrimary)
+                        StatusBadge(
+                            text = if (isActive) "Đang kinh doanh" else "Ngừng kinh doanh",
+                            ok = isActive
+                        )
+                    }
+                    HorizontalDivider(color = CrudColors.BorderColor)
 
-                        HorizontalDivider(color = CrudColors.BorderColor)
+                    TileRow("Tồn kho", "${product.stockQuantity.toInt()} ${product.unit}",
+                        "Tồn tối thiểu", "${product.minStock.toInt()} ${product.unit}")
+                    TileRow("Mã vạch", product.barcode ?: "Chưa có",
+                        "Danh mục", product.categoryName ?: "Chưa phân loại")
+                }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            ProductDetailBox("Tồn thực tế", "${product.stockQuantity.toInt()}")
-                            ProductDetailBox("Giữ chỗ", "${product.reservedQuantity.toInt()}")
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            ProductDetailBox("Khả dụng", "${product.availableQuantity.toInt()}")
-                            ProductDetailBox("Giá bán", "${product.salePrice.toInt()} đ")
-                        }
+                if (!product.description.isNullOrBlank()) {
+                    AppCard(title = "Mô tả") {
+                        Text(product.description!!, color = CrudColors.TextSecondary, fontSize = 14.sp)
                     }
                 }
 
@@ -139,59 +97,39 @@ fun ProductDetailScreen(
                     onClick = { onToggleActiveClick(product) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = CrudStyles.ButtonShape,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CrudColors.DangerAction)
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (isActive) CrudColors.DangerAction else CrudColors.Primary
+                    )
                 ) {
-                    Text(text = if (product.isActive == 1) "Ngừng kinh doanh sản phẩm" else "Tiếp tục kinh doanh sản phẩm")
+                    Text(if (isActive) "Ngừng kinh doanh sản phẩm" else "Tiếp tục kinh doanh sản phẩm")
                 }
-
-                Text(
-                    text = "Sản phẩm và lịch sử giao dịch không bị xóa.",
-                    color = CrudColors.TextSecondary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
             }
         }
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Xác nhận xóa") },
-            text = { Text("Bạn có chắc chắn muốn xóa sản phẩm này không?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    onDeleteClick(product)
-                }) {
-                    Text("Xóa", color = CrudColors.DangerAction)
-                }
+        ConfirmDialog(
+            title = "Xác nhận xóa",
+            message = "Bạn có chắc chắn muốn xóa sản phẩm \"${product.productName}\" không?",
+            confirmText = "Xóa",
+            danger = true,
+            onConfirm = {
+                showDeleteDialog = false
+                onDeleteClick(product)
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Hủy")
-                }
-            }
+            onDismiss = { showDeleteDialog = false }
         )
     }
 }
 
+/** Một hàng gồm 2 ô thông tin chia đều. Chỉ dùng trong màn này. */
 @Composable
-private fun ProductDetailBox(label: String, value: String) {
-    Surface(
-        color = CrudColors.SurfaceBackground,
-        shape = CrudStyles.ItemCardShape,
-        modifier = Modifier
-            .width(160.dp)
-            .height(70.dp)
+private fun TileRow(label1: String, value1: String, label2: String, value2: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.ItemSpacing)
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = label, color = CrudColors.TextSecondary, fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = CrudColors.TextPrimary)
-        }
+        InfoTile(label1, value1, Modifier.weight(1f))
+        InfoTile(label2, value2, Modifier.weight(1f))
     }
 }

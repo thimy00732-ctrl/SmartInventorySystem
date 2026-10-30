@@ -3,6 +3,7 @@ package com.sis.android.ui.products
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -12,34 +13,14 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -47,22 +28,20 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
-import com.sis.android.data.model.Product
-import androidx.compose.ui.graphics.Color
 import com.sis.android.ui.theme.color.CrudColors
-import androidx.annotation.OptIn
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
-@kotlin.OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BarcodeScannerScreen(
-    products: List<Product>,
-    onProductFound: (Product) -> Unit,
-    onBarcodeNotFound: (String) -> Unit,
+    onBarcodeScanned: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // Kiểm tra quyền Camera
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -72,15 +51,60 @@ fun BarcodeScannerScreen(
         )
     }
 
+    // Trạng thái quét mã
+    var isBarcodeScanned by remember {
+        mutableStateOf(false)
+    }
+
+    // Ngăn việc xử lý cùng một lúc nhiều mã vạch
+    val scanHandled = remember {
+        AtomicBoolean(false)
+    }
+
+    // Quản lý Camera và ML Kit
+    val barcodeScanner = remember {
+        BarcodeScanning.getClient()
+    }
+
+    val cameraExecutor = remember {
+        Executors.newSingleThreadExecutor()
+    }
+
+    val mainExecutor = remember(context) {
+        ContextCompat.getMainExecutor(context)
+    }
+
+    val cameraProviderState = remember {
+        mutableStateOf<ProcessCameraProvider?>(null)
+    }
+
+    val isDisposed = remember {
+        AtomicBoolean(false)
+    }
+
+    // Yêu cầu quyền Camera
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasCameraPermission = granted
     }
 
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
             launcher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Giải phóng tài nguyên khi rời màn hình
+    DisposableEffect(Unit) {
+        onDispose {
+            isDisposed.set(true)
+
+            cameraProviderState.value?.unbindAll()
+
+            barcodeScanner.close()
+
+            cameraExecutor.shutdown()
         }
     }
 
@@ -118,92 +142,123 @@ fun BarcodeScannerScreen(
 
                 AndroidView(
                     factory = { ctx ->
-                        val previewView = PreviewView(ctx)
+
+                        val previewView = PreviewView(ctx).apply {
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                        }
+
                         val cameraProviderFuture =
                             ProcessCameraProvider.getInstance(ctx)
 
                         cameraProviderFuture.addListener({
 
-                            val cameraProvider = cameraProviderFuture.get()
+                            if (isDisposed.get()) {
+                                return@addListener
+                            }
 
-                            val preview = Preview.Builder()
-                                .build()
-                                .also {
-                                    it.setSurfaceProvider(
-                                        previewView.surfaceProvider
-                                    )
-                                }
+                            try {
+                                val cameraProvider =
+                                    cameraProviderFuture.get()
 
-                            val barcodeScanner = BarcodeScanning.getClient()
+                                cameraProviderState.value = cameraProvider
 
-                            val imageAnalysis = ImageAnalysis.Builder()
-                                .setBackpressureStrategy(
-                                    ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-                                )
-                                .build()
+                                val preview = Preview.Builder()
+                                    .build()
+                                    .also {
+                                        it.setSurfaceProvider(
+                                            previewView.surfaceProvider
+                                        )
+                                    }
 
-                            imageAnalysis.setAnalyzer(
-                                ContextCompat.getMainExecutor(ctx)
-                            ) { imageProxy ->
+                                // Cấu hình ML Kit Barcode Scanner
+                                val imageAnalysis =
+                                    ImageAnalysis.Builder()
+                                        .setBackpressureStrategy(
+                                            ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                                        )
+                                        .build()
 
-                                // Lấy ảnh camera với opt-in đặt ngay tại hàm sử dụng API
-                                val mediaImage = getMediaImage(imageProxy)
+                                imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
 
-                                if (mediaImage != null) {
+                                    if (scanHandled.get() || isDisposed.get()) {
+                                        imageProxy.close()
+                                        return@setAnalyzer
+                                    }
+
+                                    val mediaImage =
+                                        getMediaImage(imageProxy)
+
+                                    if (mediaImage == null) {
+                                        imageProxy.close()
+                                        return@setAnalyzer
+                                    }
+
                                     val image = InputImage.fromMediaImage(
                                         mediaImage,
                                         imageProxy.imageInfo.rotationDegrees
                                     )
 
                                     barcodeScanner.process(image)
-                                        .addOnSuccessListener { barcodes ->
-                                            for (barcode in barcodes) {
-                                                barcode.rawValue?.let { scannedCode ->
-                                                    val matchedProduct =
-                                                        products.find {
-                                                            it.barcode == scannedCode ||
-                                                                    it.sku == scannedCode
-                                                        }
+                                        .addOnSuccessListener(mainExecutor) { barcodes ->
 
-                                                    if (matchedProduct != null) {
-                                                        onProductFound(matchedProduct)
-                                                    } else {
-                                                        onBarcodeNotFound(scannedCode)
+                                            if (!scanHandled.get()) {
+
+                                                val scannedCode =
+                                                    barcodes.firstNotNullOfOrNull {
+                                                        it.rawValue
                                                     }
+
+                                                if (scannedCode != null &&
+                                                    scanHandled.compareAndSet(
+                                                        false,
+                                                        true
+                                                    )
+                                                ) {
+                                                    isBarcodeScanned = true
+
+                                                    // Gửi mã Barcode về ViewModel
+                                                    onBarcodeScanned(scannedCode)
                                                 }
                                             }
                                         }
-                                        .addOnFailureListener {
-                                            // Xử lý lỗi đọc mã vạch nếu cần
+                                        .addOnFailureListener(mainExecutor) { exception ->
+                                            Log.e(
+                                                "BarcodeScanner",
+                                                "Lỗi quét Barcode",
+                                                exception
+                                            )
                                         }
-                                        .addOnCompleteListener {
+                                        .addOnCompleteListener(mainExecutor) {
                                             imageProxy.close()
                                         }
-
-                                } else {
-                                    imageProxy.close()
                                 }
-                            }
 
-                            try {
+                                // Khởi động Camera
                                 cameraProvider.unbindAll()
+
                                 cameraProvider.bindToLifecycle(
                                     lifecycleOwner,
                                     CameraSelector.DEFAULT_BACK_CAMERA,
                                     preview,
                                     imageAnalysis
                                 )
+
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                Log.e(
+                                    "BarcodeScanner",
+                                    "Không thể khởi động Camera",
+                                    e
+                                )
                             }
 
-                        }, ContextCompat.getMainExecutor(ctx))
+                        }, mainExecutor)
 
                         previewView
                     },
                     modifier = Modifier.fillMaxSize()
                 )
 
+                // Hướng dẫn quét Barcode
                 Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -213,7 +268,11 @@ fun BarcodeScannerScreen(
                     )
                 ) {
                     Text(
-                        text = "Đưa mã vạch vào giữa khung hình để quét...",
+                        text = if (isBarcodeScanned) {
+                            "Đã quét mã vạch thành công!"
+                        } else {
+                            "Đưa mã vạch vào giữa khung hình để quét..."
+                        },
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -221,11 +280,13 @@ fun BarcodeScannerScreen(
 
             } else {
 
+                // Giao diện khi chưa được cấp quyền Camera
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.padding(16.dp)
                 ) {
+
                     Text(
                         text = "Ứng dụng cần quyền sử dụng Camera để quét mã vạch.",
                         style = MaterialTheme.typography.bodyLarge
@@ -246,9 +307,8 @@ fun BarcodeScannerScreen(
     }
 }
 
-/**
- * Lấy ảnh từ ImageProxy.
- * Opt-in được đặt trực tiếp tại hàm sử dụng ExperimentalGetImage.
- */
-@OptIn(markerClass = [ExperimentalGetImage::class])
-private fun getMediaImage(imageProxy: ImageProxy) = imageProxy.image
+@androidx.annotation.OptIn(
+    androidx.camera.core.ExperimentalGetImage::class
+)
+private fun getMediaImage(imageProxy: ImageProxy) =
+    imageProxy.image

@@ -53,21 +53,18 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         "SCANNER" -> {
-                            // Lấy danh sách sản phẩm từ UiState nếu thành công để quét mã
-                            val productList = if (uiState is com.sis.android.ui.viewmodel.ProductUiState.Success) {
-                                (uiState as com.sis.android.ui.viewmodel.ProductUiState.Success).products
-                            } else {
-                                emptyList()
-                            }
-
                             BarcodeScannerScreen(
-                                products = productList,
-                                onProductFound = { foundProduct ->
-                                    selectedProduct = foundProduct
-                                    currentScreen = "DETAIL"
-                                },
-                                onBarcodeNotFound = { scannedCode ->
-                                    notFoundBarcode = scannedCode
+                                onBarcodeScanned = { scannedCode ->
+                                    viewModel.scanBarcode(
+                                        barcode = scannedCode,
+                                        onFound = { foundProduct ->
+                                            selectedProduct = foundProduct
+                                            currentScreen = "DETAIL"
+                                        },
+                                        onNotFound = { code ->
+                                            notFoundBarcode = code
+                                        }
+                                    )
                                 },
                                 onBackClick = { currentScreen = "LIST" }
                             )

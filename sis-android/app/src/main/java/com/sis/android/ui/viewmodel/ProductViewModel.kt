@@ -23,6 +23,7 @@ sealed interface ProductUiState {
     data class Error(val message: String) : ProductUiState
 }
 
+
 class ProductViewModel(
     private val repository: ProductRepository = ProductRepository()
 ) : ViewModel() {
@@ -42,15 +43,17 @@ class ProductViewModel(
         loadProducts()
     }
 
-    fun loadProducts(simulateEmpty: Boolean = false, simulateError: Boolean = false) {
+    fun loadProducts() {
         viewModelScope.launch {
             _uiState.value = ProductUiState.Loading
             try {
-                val list = repository.getProducts(simulateEmpty, simulateError)
+                // Gọi repository lấy danh sách sản phẩm từ API thực tế
+                // (Có thể truyền _searchQuery.value nếu API hỗ trợ tìm kiếm trực tiếp trên server)
+                val list = repository.getProducts(keyword = _searchQuery.value.ifEmpty { null })
                 allProductsCache = list
                 updateFilteredState()
             } catch (e: Exception) {
-                _uiState.value = ProductUiState.Error(e.localizedMessage ?: "Đã xảy ra lỗi không xác định")
+                _uiState.value = ProductUiState.Error(e.localizedMessage ?: "Đã xảy ra lỗi kết nối Server")
             }
         }
     }
@@ -115,5 +118,25 @@ class ProductViewModel(
     fun deleteProduct(productId: Long) {
         allProductsCache = allProductsCache.filter { it.productId != productId }
         updateFilteredState()
+    }
+
+    // Thêm vào trong ProductViewModel.kt
+    fun scanBarcode(
+        barcode: String,
+        onFound: (Product) -> Unit,
+        onNotFound: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val product = repository.getProductByBarcode(barcode)
+                if (product != null) {
+                    onFound(product)
+                } else {
+                    onNotFound(barcode)
+                }
+            } catch (e: Exception) {
+                onNotFound(barcode)
+            }
+        }
     }
 }
