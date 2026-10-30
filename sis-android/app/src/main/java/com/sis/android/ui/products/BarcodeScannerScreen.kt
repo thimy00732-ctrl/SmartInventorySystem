@@ -1,3 +1,4 @@
+
 package com.sis.android.ui.products
 
 import android.Manifest
@@ -47,11 +48,11 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.sis.android.data.model.Product
+import androidx.compose.ui.graphics.Color
+import com.sis.android.ui.theme.color.CrudColors
+import androidx.annotation.OptIn
 
-@OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalGetImage::class
-)
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BarcodeScannerScreen(
     products: List<Product>,
@@ -98,8 +99,9 @@ fun BarcodeScannerScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = CrudColors.Primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         }
@@ -248,5 +250,5 @@ fun BarcodeScannerScreen(
  * Lấy ảnh từ ImageProxy.
  * Opt-in được đặt trực tiếp tại hàm sử dụng ExperimentalGetImage.
  */
-@OptIn(ExperimentalGetImage::class)
+@OptIn(markerClass = [ExperimentalGetImage::class])
 private fun getMediaImage(imageProxy: ImageProxy) = imageProxy.image

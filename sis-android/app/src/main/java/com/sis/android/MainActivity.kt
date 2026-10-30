@@ -15,10 +15,11 @@ import com.sis.android.ui.products.ProductFormScreen
 import com.sis.android.ui.products.ProductListScreen
 import com.sis.android.ui.theme.SISTheme
 import com.sis.android.ui.viewmodel.ProductViewModel
-
+import androidx.activity.enableEdgeToEdge
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             SISTheme {
                 Surface(
