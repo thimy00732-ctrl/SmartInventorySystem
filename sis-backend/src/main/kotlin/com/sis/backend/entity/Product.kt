@@ -1,35 +1,41 @@
 package com.sis.backend.entity
 
-import kotlinx.serialization.Serializable
+import java.math.BigDecimal
+import java.time.LocalDateTime
 
 /**
- * Đại diện cho một sản phẩm được lưu trong hệ thống quản lý kho.
+ * Đại diện cho thông tin một sản phẩm trong hệ thống.
  *
- * @property productId Mã định danh duy nhất của sản phẩm.
+ * @property productId Mã định danh sản phẩm.
  * @property sku Mã SKU duy nhất của sản phẩm.
- * @property barcode Mã vạch của sản phẩm, có thể không có.
+ * @property barcode Mã vạch của sản phẩm.
  * @property productName Tên sản phẩm.
- * @property description Mô tả sản phẩm, có thể không có.
- * @property unit Đơn vị tính của sản phẩm.
- * @property minStock Số lượng tồn kho tối thiểu.
- * @property categoryId Mã danh mục, có thể không thuộc danh mục nào.
- * @property status Trạng thái của sản phẩm.
- * @property createdBy Mã người tạo sản phẩm, có thể không có.
+ * @property imageUrl Đường dẫn hình ảnh sản phẩm.
+ * @property categoryId Mã danh mục sản phẩm.
+ * @property supplierId Mã nhà cung cấp.
+ * @property unit Đơn vị tính.
+ * @property costPrice Giá vốn.
+ * @property salePrice Giá bán.
+ * @property minStock Ngưỡng tồn kho tối thiểu.
+ * @property maxStock Ngưỡng tồn kho tối đa.
+ * @property isActive Trạng thái hoạt động.
  * @property createdAt Thời điểm tạo sản phẩm.
  * @property updatedAt Thời điểm cập nhật sản phẩm gần nhất.
  */
-@Serializable
 data class Product(
     val productId: Long,
     val sku: String,
     val barcode: String?,
     val productName: String,
-    val description: String?,
-    val unit: String,
-    val minStock: Double,
+    val imageUrl: String?,
     val categoryId: Long?,
-    val status: String,
-    val createdBy: Long?,
-    val createdAt: String,
-    val updatedAt: String
+    val supplierId: Long?,
+    val unit: String,
+    val costPrice: BigDecimal,
+    val salePrice: BigDecimal,
+    val minStock: Int,
+    val maxStock: Int,
+    val isActive: Boolean,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime
 )

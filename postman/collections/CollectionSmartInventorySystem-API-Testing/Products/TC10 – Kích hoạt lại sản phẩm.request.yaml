@@ -1,0 +1,4 @@
+$kind: http-request
+url: http://localhost:8080/api/products/1/reactivate
+method: PATCH
+order: 10000

@@ -1,0 +1,23 @@
+$kind: http-request
+url: http://localhost:8080/api/products
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"sku\": \"SPTEST0001\",\r
+
+    \    \"productName\": \"Sản phẩm kiểm tra trùng SKU\",\r
+
+    \    \"unit\": \"Cái\",\r
+
+    \    \"costPrice\": \"100000.00\",\r
+
+    \    \"salePrice\": \"150000.00\",\r
+
+    \    \"minStock\": 2,\r
+
+    \    \"maxStock\": 50\r
+
+    }"
+order: 5000

@@ -102,7 +102,9 @@ fun Application.module() {
         productRoutes(
             ProductController(
                 ProductService(
-                    ProductRepository(dataSource)
+                    ProductRepository(dataSource),
+                    CategoryRepository(dataSource),
+                    SupplierRepository(dataSource)
                 )
             )
         )

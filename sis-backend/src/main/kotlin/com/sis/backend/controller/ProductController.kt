@@ -1,79 +1,97 @@
 package com.sis.backend.controller
 
-import com.sis.backend.dto.ProductRequest
-import com.sis.backend.entity.Product
+import com.sis.backend.dto.product.CreateProductRequest
+import com.sis.backend.dto.product.UpdateProductRequest
+import com.sis.backend.repository.ProductSearchFilter
 import com.sis.backend.service.ProductService
 
 /**
- * Tiếp nhận yêu cầu quản lý sản phẩm và chuyển tiếp đến Service.
+ * Tiếp nhận và xử lý các yêu cầu HTTP liên quan đến sản phẩm.
  *
- * @property service Service xử lý nghiệp vụ sản phẩm.
+ * @property productService Service xử lý nghiệp vụ sản phẩm.
  */
 class ProductController(
-    private val service: ProductService
+    private val productService: ProductService
 ) {
 
     /**
      * Lấy danh sách sản phẩm.
      *
+     * @param keyword Từ khóa tìm kiếm.
+     * @param includeInactive Có lấy sản phẩm ngừng hoạt động hay không.
      * @return Danh sách sản phẩm.
      */
-    fun getAll(): List<Product> = service.getAll()
+    fun getAllProducts(
+        keyword: String?,
+        includeInactive: Boolean
+    ) = productService.getAllProducts(keyword, includeInactive)
 
     /**
-     * Lấy sản phẩm theo ID.
+     * Lấy danh sách sản phẩm có tìm kiếm, lọc và phân trang.
      *
-     * @param id ID sản phẩm.
-     * @return Sản phẩm tương ứng.
+     * @param filter Điều kiện tìm kiếm và lọc.
+     * @param page Số trang cần lấy.
+     * @param size Số sản phẩm mỗi trang.
+     * @return Danh sách sản phẩm kèm thông tin phân trang.
      */
-    fun getById(id: Long): Product = service.getById(id)
+    fun getProductsPage(
+        filter: ProductSearchFilter,
+        page: Int,
+        size: Int
+    ) = productService.getProductsPage(filter, page, size)
 
     /**
-     * Tạo sản phẩm.
+     * Lấy thông tin chi tiết sản phẩm.
      *
-     * @param request Dữ liệu sản phẩm.
-     * @param createdBy ID người tạo, nếu có.
-     * @return Sản phẩm vừa tạo.
+     * @param productId Mã sản phẩm.
+     * @return Chi tiết sản phẩm kèm tồn kho.
      */
-    fun create(request: ProductRequest, createdBy: Long? = null): Product =
-        service.create(request, createdBy)
+    fun getProductDetail(productId: Long) =
+        productService.getProductDetail(productId)
 
     /**
-     * Cập nhật sản phẩm.
+     * Tạo sản phẩm mới.
      *
-     * @param id ID sản phẩm.
-     * @param request Dữ liệu mới.
-     * @return Sản phẩm sau cập nhật.
+     * @param request Dữ liệu tạo sản phẩm.
+     * @return Thông tin sản phẩm vừa tạo.
      */
-    fun update(id: Long, request: ProductRequest): Product =
-        service.update(id, request)
+    fun createProduct(request: CreateProductRequest) =
+        productService.createProduct(request)
 
     /**
-     * Xóa sản phẩm.
+     * Cập nhật thông tin sản phẩm.
      *
-     * @param id ID sản phẩm.
+     * @param productId Mã sản phẩm.
+     * @param request Dữ liệu cập nhật.
+     * @return Thông tin sản phẩm sau cập nhật.
      */
-    fun delete(id: Long) = service.delete(id)
+    fun updateProduct(
+        productId: Long,
+        request: UpdateProductRequest
+    ) = productService.updateProduct(productId, request)
 
     /**
-     * Tìm kiếm sản phẩm theo tên hoặc SKU.
+     * Ngừng kinh doanh sản phẩm.
      *
-     * @param keyword Từ khóa tìm kiếm.
-     * @return Danh sách sản phẩm phù hợp.
+     * @param productId Mã sản phẩm.
      */
-    fun searchProducts(keyword: String): List<Product> {
-        return service.searchProducts(keyword)
-    }
+    fun deactivateProduct(productId: Long) =
+        productService.deactivateProduct(productId)
 
     /**
-     * Tra cứu sản phẩm theo Barcode.
+     * Kích hoạt lại sản phẩm.
      *
-     * @param barcode Barcode cần tra cứu.
-     * @return Sản phẩm tìm được.
-     * @throws InvalidProductException Nếu Barcode rỗng.
-     * @throws ProductNotFoundException Nếu Barcode không tồn tại.
+     * @param productId Mã sản phẩm.
      */
-    fun getProductByBarcode(barcode: String): Product {
-        return service.getProductByBarcode(barcode)
-    }
+    fun reactivateProduct(productId: Long) =
+        productService.reactivateProduct(productId)
+
+    /**
+     * Tra cứu sản phẩm bằng SKU hoặc barcode.
+     *
+     * @param code Mã cần tra cứu.
+     * @return Thông tin sản phẩm.
+     */
+    fun lookupProduct(code: String) =
+        productService.lookupProduct(code)
 }

@@ -1,9 +1,10 @@
+
 package com.sis.backend.exception
 
 /**
  * Lớp cơ sở cho các ngoại lệ nghiệp vụ liên quan đến sản phẩm.
  *
- * @param message Mô tả lỗi nghiệp vụ.
+ * @param message mô tả lỗi nghiệp vụ
  */
 sealed class ProductException(
     override val message: String
@@ -22,7 +23,7 @@ class DuplicateSkuException :
     ProductException("SKU đã tồn tại")
 
 /**
- * Được ném khi Barcode đã thuộc về sản phẩm khác.
+ * Được ném khi barcode đã thuộc về sản phẩm khác.
  */
 class DuplicateBarcodeException :
     ProductException("Barcode đã tồn tại")
@@ -34,15 +35,27 @@ class InvalidProductCategoryException :
     ProductException("Danh mục không tồn tại hoặc không hoạt động")
 
 /**
+ * Được ném khi nhà cung cấp không tồn tại hoặc không hoạt động.
+ */
+class InvalidProductSupplierException :
+    ProductException("Nhà cung cấp không tồn tại hoặc không hoạt động")
+
+/**
  * Được ném khi dữ liệu sản phẩm không hợp lệ.
  *
- * @param message Mô tả dữ liệu không hợp lệ.
+ * @param message mô tả dữ liệu không hợp lệ
  */
 class InvalidProductException(message: String) :
     ProductException(message)
 
 /**
- * Được ném khi người dùng không có quyền xóa sản phẩm.
+ * Được ném khi người dùng không có quyền thực hiện thao tác.
  */
 class ProductForbiddenException :
     ProductException("Bạn không có quyền thực hiện thao tác này")
+
+/**
+ * Được ném khi không thể tạo SKU hoặc barcode duy nhất.
+ */
+class ProductCodeGenerationException(message: String) :
+    ProductException(message)

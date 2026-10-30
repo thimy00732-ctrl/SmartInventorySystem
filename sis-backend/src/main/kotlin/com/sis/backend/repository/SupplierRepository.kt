@@ -109,6 +109,33 @@ class SupplierRepository(
     }
 
     /**
+     * Kiểm tra nhà cung cấp có tồn tại và đang hoạt động hay không.
+     *
+     * @param supplierId ID nhà cung cấp cần kiểm tra.
+     * @return true nếu nhà cung cấp tồn tại và đang hoạt động.
+     */
+    fun existsActiveById(supplierId: Long): Boolean {
+        val sql = """
+        SELECT EXISTS (
+            SELECT 1
+            FROM suppliers
+            WHERE supplier_id = ?
+              AND is_active = TRUE
+        )
+    """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, supplierId)
+
+                statement.executeQuery().use { result ->
+                    result.next() && result.getBoolean(1)
+                }
+            }
+        }
+    }
+
+    /**
      * Kiểm tra tên nhà cung cấp đã tồn tại hay chưa.
      *
      * excludeId được sử dụng khi cập nhật để bỏ qua chính nhà cung cấp đó.

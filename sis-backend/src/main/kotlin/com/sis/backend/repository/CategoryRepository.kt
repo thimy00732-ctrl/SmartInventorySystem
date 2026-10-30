@@ -108,6 +108,33 @@ class CategoryRepository(
     }
 
     /**
+     * Kiểm tra danh mục có tồn tại và đang hoạt động hay không.
+     *
+     * @param categoryId ID danh mục cần kiểm tra.
+     * @return true nếu danh mục tồn tại và đang hoạt động.
+     */
+    fun existsActiveById(categoryId: Long): Boolean {
+        val sql = """
+        SELECT EXISTS (
+            SELECT 1
+            FROM categories
+            WHERE category_id = ?
+              AND is_active = TRUE
+        )
+    """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+
+                statement.executeQuery().use { result ->
+                    result.next() && result.getBoolean(1)
+                }
+            }
+        }
+    }
+
+    /**
      * Kiểm tra tên danh mục đã tồn tại hay chưa.
      *
      * So sánh không phân biệt chữ hoa, chữ thường và bỏ khoảng trắng
