@@ -81,10 +81,47 @@ fun ProductDetailScreen(
                     }
                     HorizontalDivider(color = CrudColors.BorderColor)
 
-                    TileRow("Tồn kho", "${product.stockQuantity.toInt()} ${product.unit}",
-                        "Tồn tối thiểu", "${product.minStock.toInt()} ${product.unit}")
-                    TileRow("Mã vạch", product.barcode ?: "Chưa có",
-                        "Danh mục", product.categoryName ?: "Chưa phân loại")
+                    TileRow(
+                        "Mã SKU",
+                        product.sku.takeIf { it.isNotBlank() } ?: "Chưa có",
+                        "Mã vạch",
+                        product.barcode?.takeIf { it.isNotBlank() } ?: "Chưa có"
+                    )
+                    TileRow(
+                        "Danh mục",
+                        product.categoryName.takeIf { it.isNotBlank() } ?: "Chưa phân loại",
+                        "Đơn vị tính",
+                        product.unit
+                    )
+                    TileRow(
+                        "Tồn kho",
+                        "${product.stockQuantity.toInt()} ${product.unit}",
+                        "Tồn tối thiểu",
+                        "${product.minStock.toInt()} ${product.unit}"
+                    )
+                    TileRow(
+                        "Tồn tối đa",
+                        "${product.maxStock.toInt()} ${product.unit}",
+                        "Khả dụng",
+                        "${product.availableQuantity.toInt()} ${product.unit}"
+                    )
+                }
+
+                AppCard(title = "Giá cả") {
+                    TileRow(
+                        "Giá vốn",
+                        "${String.format("%,.0f", product.costPrice)} đ",
+                        "Giá bán",
+                        "${String.format("%,.0f", product.salePrice)} đ"
+                    )
+                    val profit = product.salePrice - product.costPrice
+                    val profitPercent = if (product.costPrice > 0) (profit / product.costPrice * 100) else 0.0
+                    TileRow(
+                        "Lợi nhuận/sp",
+                        "${String.format("%,.0f", profit)} đ",
+                        "Tỷ suất LN",
+                        "${String.format("%.1f", profitPercent)}%"
+                    )
                 }
 
                 if (!product.description.isNullOrBlank()) {

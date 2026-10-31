@@ -3,21 +3,21 @@ package com.sis.android.data.model
 import com.google.gson.annotations.SerializedName
 
 data class Product(
-    @SerializedName("product_id") val productId: Long = 0L,
+    @SerializedName("productId") val productId: Long = 0L,
     @SerializedName("sku") val sku: String = "",
     @SerializedName("barcode") val barcode: String? = null,
-    @SerializedName("product_name") val productName: String = "",
-    @SerializedName("image_url") val imageUrl: String? = null,
-    @SerializedName("category_id") val categoryId: Long? = null,
-    @SerializedName("supplier_id") val supplierId: Long? = null,
+    @SerializedName("productName") val productName: String = "",
+    @SerializedName("imageUrl") val imageUrl: String? = null,
+    @SerializedName("categoryId") val categoryId: Long? = null,
+    @SerializedName("supplierId") val supplierId: Long? = null,
     @SerializedName("unit") val unit: String = "Cái",
-    @SerializedName("cost_price") val costPrice: Double = 0.0,
-    @SerializedName("sale_price") val salePrice: Double = 0.0,
-    @SerializedName("min_stock") val minStock: Double = 0.0,
-    @SerializedName("max_stock") val maxStock: Double = 1000.0,
-    @SerializedName("is_active") val isActive: Int = 1,
+    @SerializedName("costPrice") val costPrice: Double = 0.0,
+    @SerializedName("salePrice") val salePrice: Double = 0.0,
+    @SerializedName("minStock") val minStock: Double = 0.0,
+    @SerializedName("maxStock") val maxStock: Double = 1000.0,
+    @SerializedName("isActive") val isActive: Boolean = true,  // <-- Đổi từ Int sang Boolean
 
-    // Các trường dữ liệu mở rộng cho giao diện
+    // Các trường mở rộng giữ nguyên
     val description: String? = null,
     val stockQuantity: Double = 0.0,
     val reservedQuantity: Double = 0.0,
@@ -26,12 +26,14 @@ data class Product(
     val categoryName: String = "Chưa phân loại"
 ) {
     val status: String
-        get() = if (isActive == 1) "ACTIVE" else "INACTIVE"
+        get() = if (isActive) "ACTIVE" else "INACTIVE"
 
     val statusText: String
-        get() = if (isActive == 1) "Đang kinh doanh" else "Ngừng kinh doanh"
+        get() = if (isActive) "Đang kinh doanh" else "Ngừng kinh doanh"
 
-    // Constructor phụ hỗ trợ khởi tạo linh hoạt từ Form Screen
+
+
+// Constructor phụ hỗ trợ khởi tạo linh hoạt từ Form Screen
     constructor(
         productId: Long = 0L,
         sku: String = "",
@@ -69,7 +71,8 @@ data class Product(
         salePrice = salePrice.toDouble(),
         minStock = minStock.toDouble(),
         maxStock = maxStock.toDouble(),
-        isActive = if (status == "ACTIVE" || status == "1" || status.lowercase() == "true") 1 else 0,
+        isActive = (status == "ACTIVE" || status == "1" || status.lowercase() == "true"),
+
         description = description,
         stockQuantity = stockQuantity.toDouble(),
         reservedQuantity = reservedQuantity.toDouble(),
@@ -77,4 +80,14 @@ data class Product(
         warehouseName = warehouseName,
         categoryName = categoryName
     )
+
+
 }
+
+data class ProductPageResponse(
+    val items: List<Product>,
+    val page: Int,
+    val size: Int,
+    val totalItems: Long,
+    val totalPages: Int
+)

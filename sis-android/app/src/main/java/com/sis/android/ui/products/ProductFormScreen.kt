@@ -130,18 +130,18 @@ fun ProductFormScreen(
                                 // Tiếp tục xử lý lưu dữ liệu ở đây
                                 localError = null
                                 onSave(
-                                    Product(
-                                        productId = productToEdit?.productId ?: 0L, // server tự cấp ID
+                                    (productToEdit ?: Product()).copy(  // <-- Dùng .copy() thay vì constructor
+                                        productId = productToEdit?.productId ?: 0L,
                                         sku = sku.trim(),
                                         barcode = barcode.ifBlank { null },
                                         productName = productName.trim(),
-                                        description = description.ifBlank { null },
                                         unit = unit.trim(),
                                         minStock = stock,
                                         categoryId = categoryId,
-                                        status = status
+                                        isActive = (status == "ACTIVE")  // <-- Convert String sang Boolean
                                     )
                                 )
+
                             }
                         }
                     },

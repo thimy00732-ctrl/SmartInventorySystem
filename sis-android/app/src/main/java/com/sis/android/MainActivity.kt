@@ -83,12 +83,13 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = "LIST"
                                     },
                                     onToggleActiveClick = { toggleProd ->
-                                        // Đảo ngược trạng thái kinh doanh: 1 thành 0 (ngừng kinh doanh) và ngược lại
-                                        val newActiveStatus = if (toggleProd.isActive == 1) 0 else 1
+                                        // Đảo ngược trạng thái kinh doanh: true thành false và ngược lại
+                                        val newActiveStatus = !toggleProd.isActive
                                         val updated = toggleProd.copy(isActive = newActiveStatus)
                                         viewModel.updateProduct(updated)
                                         selectedProduct = updated // Cập nhật lại state chi tiết đang xem
                                     }
+
                                 )
                             }
                         }
