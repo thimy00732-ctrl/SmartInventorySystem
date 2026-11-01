@@ -452,6 +452,10 @@ class ProductService(
      * Chuyển entity sản phẩm thành dữ liệu phản hồi.
      *
      * @return thông tin sản phẩm dạng DTO
+     *  // ↓↓↓ THÊM 3 TRƯỜNG NÀY ↓↓↓
+     *         stockQuantity = stockQuantity,
+     *         reservedQuantity = reservedQuantity,
+     *         availableQuantity = availableQuantity
      */
     private fun Product.toProductResponse(): ProductResponse {
         return ProductResponse(
@@ -469,7 +473,10 @@ class ProductService(
             maxStock = maxStock,
             isActive = isActive,
             createdAt = createdAt.toString(),
-            updatedAt = updatedAt.toString()
+            updatedAt = updatedAt.toString(),
+            stockQuantity = stockQuantity,
+            reservedQuantity = reservedQuantity,
+            availableQuantity = availableQuantity
         )
     }
 }

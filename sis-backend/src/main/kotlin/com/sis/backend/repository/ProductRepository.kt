@@ -1,5 +1,6 @@
 package com.sis.backend.repository
 
+
 import com.sis.backend.dto.product.ProductInventoryResponse
 import com.sis.backend.entity.Product
 import com.sis.backend.mapper.ProductInventoryMapper
@@ -72,13 +73,18 @@ class ProductRepository(
         val sql = buildString {
             append(
                 """
-                SELECT product_id, sku, barcode, product_name, image_url,
-                       category_id, supplier_id, unit, cost_price, sale_price,
-                       min_stock, max_stock, is_active, created_at, updated_at
-                FROM products
-                WHERE 1 = 1
-                """.trimIndent()
+        SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
+               p.category_id, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+               p.min_stock, p.max_stock,
+               COALESCE((SELECT SUM(i.stock_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS stock_quantity,
+               COALESCE((SELECT SUM(i.reserved_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS reserved_quantity,
+               COALESCE((SELECT SUM(i.available_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS available_quantity,
+               p.is_active, p.created_at, p.updated_at
+        FROM products p
+        WHERE 1 = 1
+        """.trimIndent()
             )
+
 
             if (!includeInactive) {
                 append(" AND is_active = TRUE")
@@ -234,27 +240,30 @@ class ProductRepository(
         """.trimIndent()
 
         val selectSql = """
-            SELECT
-                product_id,
-                sku,
-                barcode,
-                product_name,
-                image_url,
-                category_id,
-                supplier_id,
-                unit,
-                cost_price,
-                sale_price,
-                min_stock,
-                max_stock,
-                is_active,
-                created_at,
-                updated_at
-            FROM products
-            $whereClause
-            ORDER BY $sortColumn $sortDirection, product_id DESC
-            LIMIT ? OFFSET ?
-        """.trimIndent()
+    SELECT
+        p.product_id,
+        p.sku,
+        p.barcode,
+        p.product_name,
+        p.image_url,
+        p.category_id,
+        p.supplier_id,
+        p.unit,
+        p.cost_price,
+        p.sale_price,
+        p.min_stock,
+        p.max_stock,
+        p.is_active,
+        p.created_at,
+        p.updated_at,
+        COALESCE((SELECT SUM(i.stock_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS stock_quantity,
+        COALESCE((SELECT SUM(i.reserved_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS reserved_quantity,
+        COALESCE((SELECT SUM(i.available_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS available_quantity
+    FROM products p
+    $whereClause
+    ORDER BY $sortColumn $sortDirection, p.product_id DESC
+    LIMIT ? OFFSET ?
+""".trimIndent()
 
         return dataSource.connection.use { connection ->
 
@@ -735,7 +744,12 @@ class ProductRepository(
             maxStock = resultSet.getInt("max_stock"),
             isActive = resultSet.getBoolean("is_active"),
             createdAt = resultSet.getTimestamp("created_at").toLocalDateTime(),
-            updatedAt = resultSet.getTimestamp("updated_at").toLocalDateTime()
+            updatedAt = resultSet.getTimestamp("updated_at").toLocalDateTime(),
+            // ↓↓↓ THÊM 3 TRƯỜNG NÀY ↓↓↓
+            stockQuantity = try { resultSet.getInt("stock_quantity") } catch (e: Exception) { 0 },
+            reservedQuantity = try { resultSet.getInt("reserved_quantity") } catch (e: Exception) { 0 },
+            availableQuantity = try { resultSet.getInt("available_quantity") } catch (e: Exception) { 0 }
         )
     }
+
 }

@@ -29,6 +29,8 @@ data class CreateProductRequest(
 
     val minStock: Int = 0,
     val maxStock: Int = 1000
+
+
 )
 
 /**
@@ -81,7 +83,11 @@ data class ProductResponse(
     val maxStock: Int,
     val isActive: Boolean,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+
+    val stockQuantity: Int = 0,        // ← Châu THÊM 3 DÒNG NÀY
+    val reservedQuantity: Int = 0,
+    val availableQuantity: Int = 0
 )
 
 /**

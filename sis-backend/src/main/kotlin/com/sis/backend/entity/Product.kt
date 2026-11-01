@@ -35,7 +35,12 @@ data class Product(
     val salePrice: BigDecimal,
     val minStock: Int,
     val maxStock: Int,
+
     val isActive: Boolean,
     val createdAt: LocalDateTime,
-    val updatedAt: LocalDateTime
+    val updatedAt: LocalDateTime,
+
+    val stockQuantity: Int = 0,        // <-- THÊM DÒNG NÀY
+    val reservedQuantity: Int = 0,     // <-- THÊM DÒNG NÀY
+    val availableQuantity: Int = 0,    // <-- THÊM DÒNG NÀY
 )
