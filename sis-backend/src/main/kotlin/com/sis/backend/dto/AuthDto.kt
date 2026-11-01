@@ -30,8 +30,8 @@ data class LogoutRequest(
 data class CreateUserRequest(
     val email: String,
     val password: String,
-    val full_name: String? = null,  // Họ tên
-    val phone: String? = null,      // Số điện thoại
+    val full_name: String,          // Họ tên (bắt buộc)
+    val phone: String,              // Số điện thoại (bắt buộc)
     val role: String // "ADMIN" hoặc "WAREHOUSE_STAFF"
 )
 

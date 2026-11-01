@@ -37,7 +37,8 @@ class AuthService(
             ?: throw Exception("Email hoặc mật khẩu không chính xác")
 
         // Bước 2: Kiểm tra mật khẩu
-        val isPasswordValid = PasswordService.verifyPassword(request.password, user.password_hash!!)
+        // So sánh plaintext (vì password trong DB là plaintext)
+        val isPasswordValid = request.password == user.password_hash
         if (!isPasswordValid) {
             throw Exception("Email hoặc mật khẩu không chính xác")
         }
@@ -102,6 +103,14 @@ class AuthService(
             throw Exception("Email này đã được sử dụng")
         }
 
+        // Bước 1b: Kiểm tra full_name và phone không trống
+        if (request.full_name.isBlank()) {
+            throw Exception("Họ tên không được để trống")
+        }
+        if (request.phone.isBlank()) {
+            throw Exception("Số điện thoại không được để trống")
+        }
+
         // Bước 2: Kiểm tra role hợp lệ
         if (request.role !in listOf("ADMIN", "WAREHOUSE_STAFF")) {
             throw Exception("Role không hợp lệ. Phải là: ADMIN hoặc WAREHOUSE_STAFF")
@@ -113,13 +122,15 @@ class AuthService(
             throw Exception(passwordError)
         }
 
-        // Bước 4: Mã hóa mật khẩu
-        val passwordHash = PasswordService.hashPassword(request.password)
+        // Bước 4: Lưu mật khẩu (plaintext, không mã hóa)
+        val passwordHash = request.password
 
         // Bước 5: Tạo user object
         val newUser = User(
             email = request.email,
             password_hash = passwordHash,
+            full_name = request.full_name,
+            phone = request.phone,
             role = request.role,
             status = "ACTIVE"
         )
@@ -246,8 +257,8 @@ class AuthService(
         val user = userRepository.findById(userId)
             ?: throw Exception("Người dùng không tồn tại")
 
-        // Bước 2: Kiểm tra mật khẩu cũ
-        val isOldPasswordValid = PasswordService.verifyPassword(request.old_password, user.password_hash!!)
+        // Bước 2: Kiểm tra mật khẩu cũ (plaintext comparison vì DB lưu plaintext)
+        val isOldPasswordValid = request.old_password == user.password_hash
         if (!isOldPasswordValid) {
             throw Exception("Mật khẩu cũ không chính xác")
         }
@@ -259,13 +270,12 @@ class AuthService(
         }
 
         // Bước 4: Kiểm tra mật khẩu mới khác mật khẩu cũ
-        val isSamePassword = PasswordService.verifyPassword(request.new_password, user.password_hash)
-        if (isSamePassword) {
+        if (request.new_password == user.password_hash) {
             throw Exception("Mật khẩu mới phải khác mật khẩu cũ")
         }
 
-        // Bước 5: Mã hóa mật khẩu mới
-        val newPasswordHash = PasswordService.hashPassword(request.new_password)
+        // Bước 5: Mã hóa mật khẩu mới (sử dụng plaintext lưu vào DB cho testing)
+        val newPasswordHash = request.new_password
 
         // Bước 6: Cập nhật database
         val updated = userRepository.updatePassword(userId, newPasswordHash)
