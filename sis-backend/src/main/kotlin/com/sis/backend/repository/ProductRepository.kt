@@ -74,13 +74,14 @@ class ProductRepository(
             append(
                 """
         SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
-               p.category_id, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+               p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
                p.min_stock, p.max_stock,
                COALESCE((SELECT SUM(i.stock_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS stock_quantity,
                COALESCE((SELECT SUM(i.reserved_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS reserved_quantity,
                COALESCE((SELECT SUM(i.available_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS available_quantity,
                p.is_active, p.created_at, p.updated_at
         FROM products p
+        LEFT JOIN categories c ON p.category_id = c.category_id
         WHERE 1 = 1
         """.trimIndent()
             )
@@ -247,6 +248,7 @@ class ProductRepository(
         p.product_name,
         p.image_url,
         p.category_id,
+        c.category_name,
         p.supplier_id,
         p.unit,
         p.cost_price,
@@ -260,6 +262,7 @@ class ProductRepository(
         COALESCE((SELECT SUM(i.reserved_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS reserved_quantity,
         COALESCE((SELECT SUM(i.available_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS available_quantity
     FROM products p
+    LEFT JOIN categories c ON p.category_id = c.category_id
     $whereClause
     ORDER BY $sortColumn $sortDirection, p.product_id DESC
     LIMIT ? OFFSET ?
@@ -322,11 +325,12 @@ class ProductRepository(
      */
     fun findById(productId: Long): Product? {
         val sql = """
-            SELECT product_id, sku, barcode, product_name, image_url,
-                   category_id, supplier_id, unit, cost_price, sale_price,
-                   min_stock, max_stock, is_active, created_at, updated_at
-            FROM products
-            WHERE product_id = ?
+            SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
+                   p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+                   p.min_stock, p.max_stock, p.is_active, p.created_at, p.updated_at
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            WHERE p.product_id = ?
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
@@ -349,11 +353,12 @@ class ProductRepository(
     fun findBySku(sku: String): Product? {
         return findOne(
             """
-            SELECT product_id, sku, barcode, product_name, image_url,
-                   category_id, supplier_id, unit, cost_price, sale_price,
-                   min_stock, max_stock, is_active, created_at, updated_at
-            FROM products
-            WHERE sku = ?
+            SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
+                   p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+                   p.min_stock, p.max_stock, p.is_active, p.created_at, p.updated_at
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            WHERE p.sku = ?
             """.trimIndent(),
             sku
         )
@@ -368,11 +373,12 @@ class ProductRepository(
     fun findByBarcode(barcode: String): Product? {
         return findOne(
             """
-            SELECT product_id, sku, barcode, product_name, image_url,
-                   category_id, supplier_id, unit, cost_price, sale_price,
-                   min_stock, max_stock, is_active, created_at, updated_at
-            FROM products
-            WHERE barcode = ?
+            SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
+                   p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+                   p.min_stock, p.max_stock, p.is_active, p.created_at, p.updated_at
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            WHERE p.barcode = ?
             """.trimIndent(),
             barcode
         )
@@ -733,6 +739,7 @@ class ProductRepository(
             imageUrl = resultSet.getString("image_url"),
             categoryId = resultSet.getLong("category_id")
                 .let { if (resultSet.wasNull()) null else it },
+            categoryName = resultSet.getString("category_name"),
             supplierId = resultSet.getLong("supplier_id")
                 .let { if (resultSet.wasNull()) null else it },
             unit = resultSet.getString("unit"),

@@ -43,23 +43,33 @@ interface ApiService {
         @Path("barcode") barcode: String
     ): ApiResponse<Product>
 
+    @PATCH("api/products/{id}/deactivate")
+    suspend fun deactivateProduct(
+        @Path("id") id: Long
+    )
+
+    @PATCH("api/products/{id}/reactivate")
+    suspend fun reactivateProduct(
+        @Path("id") id: Long
+    )
+
     // --- CATEGORIES (Danh mục sản phẩm) ---
     @GET("api/categories")
-    suspend fun getCategories(): ApiResponse<List<Category>>
+    suspend fun getCategories(): List<Category>  // ← BỎ ApiResponse wrapper
 
     @POST("api/categories")
     suspend fun createCategory(
         @Body category: Category
-    ): ApiResponse<Category>
+    ): Category  // ← BỎ ApiResponse wrapper
 
     @PUT("api/categories/{id}")
     suspend fun updateCategory(
         @Path("id") id: Long,
         @Body category: Category
-    ): ApiResponse<Category>
+    ): Category  // ← BỎ ApiResponse wrapper
 
-    @DELETE("api/categories/{id}")
-    suspend fun deleteCategory(
+    @PATCH("api/categories/{id}/deactivate")
+    suspend fun deactivateCategory(
         @Path("id") id: Long
-    ): ApiResponse<Unit>
+    ): Unit  // ← BỎ ApiResponse wrapper
 }

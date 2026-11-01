@@ -1,8 +1,23 @@
 package com.sis.android.data.model
 
+import com.google.gson.annotations.SerializedName
+
 data class Category(
-    val categoryId: Long,
+    @SerializedName("categoryId")
+    val categoryId: Long? = null,
+    
+    @SerializedName("categoryName")
     val categoryName: String,
-    val description: String?,
-    val status: String // 'ACTIVE', 'INACTIVE'
+    
+    @SerializedName("description")
+    val description: String? = null,
+    
+    @SerializedName("isActive")
+    val isActive: Boolean = true,
+    
+    @SerializedName("createdAt")
+    val createdAt: String? = null,
+    
+    @SerializedName("updatedAt")
+    val updatedAt: String? = null
 )

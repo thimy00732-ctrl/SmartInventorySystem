@@ -59,7 +59,8 @@ class CategoryViewModel(
     fun updateCategory(category: Category, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                repository.updateCategory(category.categoryId, category)
+                val id = category.categoryId ?: return@launch
+                repository.updateCategory(id, category)
                 loadCategories() // Load lại danh sách mới nhất từ server
                 onSuccess()
             } catch (e: Exception) {
@@ -68,14 +69,14 @@ class CategoryViewModel(
         }
     }
 
-    /** Xóa danh mục qua API */
-    fun deleteCategory(categoryId: Long) {
+    /** Ngừng hoạt động danh mục qua API */
+    fun deactivateCategory(categoryId: Long) {
         viewModelScope.launch {
             try {
-                repository.deleteCategory(categoryId)
-                loadCategories() // Load lại danh sách sau khi xóa
+                repository.deactivateCategory(categoryId)
+                loadCategories() // Load lại danh sách sau khi ngừng hoạt động
             } catch (e: Exception) {
-                _errorMessage.value = e.localizedMessage ?: "Lỗi xóa danh mục"
+                _errorMessage.value = e.localizedMessage ?: "Lỗi ngừng hoạt động danh mục"
             }
         }
     }

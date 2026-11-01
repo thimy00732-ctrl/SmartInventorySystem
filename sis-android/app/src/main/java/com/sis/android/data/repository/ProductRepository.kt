@@ -75,4 +75,26 @@ class ProductRepository {
             null // Trả về null nếu không tìm thấy hoặc lỗi kết nối
         }
     }
+
+    /** Ngừng kinh doanh sản phẩm */
+    suspend fun deactivateProduct(productId: Long): Boolean {
+        return try {
+            apiService.deactivateProduct(productId)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("ProductRepo", "❌ Error deactivating product: ${e.message}", e)
+            false
+        }
+    }
+
+    /** Kích hoạt lại sản phẩm */
+    suspend fun reactivateProduct(productId: Long): Boolean {
+        return try {
+            apiService.reactivateProduct(productId)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("ProductRepo", "❌ Error reactivating product: ${e.message}", e)
+            false
+        }
+    }
 }

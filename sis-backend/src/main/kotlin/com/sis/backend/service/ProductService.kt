@@ -465,6 +465,7 @@ class ProductService(
             productName = productName,
             imageUrl = imageUrl,
             categoryId = categoryId,
+            categoryName = categoryName,
             supplierId = supplierId,
             unit = unit,
             costPrice = costPrice,

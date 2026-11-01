@@ -56,7 +56,7 @@ fun CategoryListScreen(
                             Text(text = category.description, style = MaterialTheme.typography.bodyMedium)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = "Trạng thái: ${category.status}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        Text(text = "Trạng thái: ${if (category.isActive) "Hoạt động" else "Ngừng hoạt động"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             }

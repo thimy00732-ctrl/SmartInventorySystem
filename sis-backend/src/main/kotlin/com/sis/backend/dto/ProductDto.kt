@@ -70,6 +70,7 @@ data class ProductResponse(
     val productName: String,
     val imageUrl: String?,
     val categoryId: Long?,
+    val categoryName: String? = null,
     val supplierId: Long?,
     val unit: String,
 

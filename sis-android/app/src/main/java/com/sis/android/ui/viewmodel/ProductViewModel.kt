@@ -120,6 +120,33 @@ class ProductViewModel(
         updateFilteredState()
     }
 
+    /** Ngừng kinh doanh sản phẩm */
+    fun toggleProductActive(product: Product, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val success = if (product.isActive) {
+                    repository.deactivateProduct(product.productId)
+                } else {
+                    repository.reactivateProduct(product.productId)
+                }
+                
+                if (success) {
+                    // Cập nhật product trong cache
+                    val updatedProduct = product.copy(isActive = !product.isActive)
+                    allProductsCache = allProductsCache.map { 
+                        if (it.productId == product.productId) updatedProduct else it 
+                    }
+                    updateFilteredState()
+                    onSuccess()
+                } else {
+                    onError("Không thể ${if (product.isActive) "ngừng" else "kích hoạt"} sản phẩm")
+                }
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Lỗi kết nối server")
+            }
+        }
+    }
+
     // Thêm vào trong ProductViewModel.kt
     fun scanBarcode(
         barcode: String,

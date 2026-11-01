@@ -15,6 +15,7 @@ import com.sis.android.ui.products.ProductFormScreen
 import com.sis.android.ui.products.ProductListScreen
 import com.sis.android.ui.theme.SISTheme
 import com.sis.android.ui.viewmodel.ProductViewModel
+import com.sis.android.ui.viewmodel.CategoryViewModel
 import androidx.activity.enableEdgeToEdge
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,8 +28,16 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val viewModel: ProductViewModel = viewModel()
+                    val categoryViewModel: CategoryViewModel = viewModel()
+                    
                     // Lấy danh sách sản phẩm thông qua UIState mới của ViewModel
                     val uiState by viewModel.uiState.collectAsState()
+                    val categories by categoryViewModel.categoryList.collectAsState()
+                    
+                    // Load categories khi khởi động
+                    LaunchedEffect(Unit) {
+                        categoryViewModel.loadCategories()
+                    }
 
                     var currentScreen by remember { mutableStateOf("LIST") }
                     var selectedProduct by remember { mutableStateOf<Product?>(null) }
@@ -83,11 +92,18 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = "LIST"
                                     },
                                     onToggleActiveClick = { toggleProd ->
-                                        // Đảo ngược trạng thái kinh doanh: true thành false và ngược lại
-                                        val newActiveStatus = !toggleProd.isActive
-                                        val updated = toggleProd.copy(isActive = newActiveStatus)
-                                        viewModel.updateProduct(updated)
-                                        selectedProduct = updated // Cập nhật lại state chi tiết đang xem
+                                        // Gọi API để toggle trạng thái
+                                        viewModel.toggleProductActive(
+                                            product = toggleProd,
+                                            onSuccess = {
+                                                // Cập nhật UI sau khi thành công
+                                                selectedProduct = toggleProd.copy(isActive = !toggleProd.isActive)
+                                            },
+                                            onError = { errorMsg ->
+                                                // TODO: Hiển thị toast/snackbar lỗi
+                                                android.util.Log.e("MainActivity", "Error: $errorMsg")
+                                            }
+                                        )
                                     }
 
                                 )
@@ -96,6 +112,7 @@ class MainActivity : ComponentActivity() {
                         "FORM" -> {
                             ProductFormScreen(
                                 productToEdit = productToEdit,
+                                categories = categories,
                                 onSave = { savedProduct ->
                                     if (productToEdit == null) {
                                         viewModel.addProduct(savedProduct)
