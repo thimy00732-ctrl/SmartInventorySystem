@@ -25,7 +25,9 @@ dependencies {
     implementation("io.ktor:ktor-server-cors-jvm:3.3.1")
     implementation("io.ktor:ktor-server-auth-jvm:3.3.1")
     implementation("io.ktor:ktor-server-auth-jwt-jvm:3.3.1")
-
+//mo them
+implementation("com.auth0:java-jwt:4.5.0")
+implementation("at.favre.lib:bcrypt:0.10.2")
     // MySQL connection
     implementation("com.zaxxer:HikariCP:6.3.0")
     implementation("com.mysql:mysql-connector-j:9.4.0")
