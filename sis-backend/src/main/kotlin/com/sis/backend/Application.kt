@@ -2,6 +2,7 @@
 package com.sis.backend
 
 import com.sis.backend.config.DatabaseConfig
+import com.sis.backend.routes.authRoutes
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -73,5 +74,8 @@ fun Application.module() {
                 )
             }
         }
+
+        // Đăng ký authentication & authorization routes (UC01-UC07)
+        authRoutes(dataSource)
     }
 }

@@ -30,6 +30,10 @@ dependencies {
     implementation("com.zaxxer:HikariCP:6.3.0")
     implementation("com.mysql:mysql-connector-j:9.4.0")
 
+    // JWT & Security
+    implementation("com.auth0:java-jwt:4.4.0")
+    implementation("at.favre.lib:bcrypt:0.9.0")
+
     // Logging
     implementation("ch.qos.logback:logback-classic:1.5.18")
 
