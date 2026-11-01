@@ -23,7 +23,7 @@ class UserRepository(private val dataSource: DataSource) {
                    last_login_at, created_at, updated_at, 
                    must_change_password, temp_password_expires_at, password_changed_at
             FROM users 
-            WHERE email = ? AND status = 'ACTIVE'
+            WHERE email = ?
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
@@ -272,6 +272,57 @@ class UserRepository(private val dataSource: DataSource) {
                         users.add(mapResultSetToUser(resultSet))
                     }
                     users
+                }
+            }
+        }
+    }
+
+    /**
+     * UC08/UC09 (NEW): Lấy danh sách người dùng với phân trang
+     * @param limit - số lượng người dùng mỗi trang
+     * @param offset - vị trí bắt đầu
+     * @return List<User> của người dùng theo limit và offset
+     */
+    fun findAll(limit: Int, offset: Int): List<User> {
+        val query = """
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
+                   last_login_at, created_at, updated_at,
+                   must_change_password, temp_password_expires_at, password_changed_at
+            FROM users 
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setInt(1, limit)
+                statement.setInt(2, offset)
+                statement.executeQuery().use { resultSet ->
+                    val users = mutableListOf<User>()
+                    while (resultSet.next()) {
+                        users.add(mapResultSetToUser(resultSet))
+                    }
+                    users
+                }
+            }
+        }
+    }
+
+    /**
+     * UC08/UC09 (NEW): Lấy tổng số người dùng trong database
+     * @return Int - tổng số người dùng
+     */
+    fun countAll(): Int {
+        val query = "SELECT COUNT(*) as total FROM users"
+
+        return dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(query).use { resultSet ->
+                    if (resultSet.next()) {
+                        resultSet.getInt("total")
+                    } else {
+                        0
+                    }
                 }
             }
         }

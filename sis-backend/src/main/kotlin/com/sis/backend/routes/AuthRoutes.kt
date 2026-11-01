@@ -500,5 +500,181 @@ fun Route.authRoutes(dataSource: DataSource) {
                 )
             }
         }
+
+        /**
+         * UC08 (NEW): Lấy chi tiết 1 staff theo ID
+         * GET /api/auth/users/{id}
+         *
+         * Headers:
+         * Authorization: Bearer <access_token>
+         *
+         * Response (200 OK):
+         * {
+         *   "user_id": 2,
+         *   "email": "staff@example.com",
+         *   "full_name": "John Doe",
+         *   "phone": "0123456789",
+         *   "role": "WAREHOUSE_STAFF",
+         *   "status": "ACTIVE",
+         *   "last_login_at": "2024-01-15T10:30:00",
+         *   "created_at": "2024-01-15T10:30:00"
+         * }
+         *
+         * Error (401):
+         * {
+         *   "error": "Token không hợp lệ hoặc đã hết hạn"
+         * }
+         *
+         * Error (404):
+         * {
+         *   "error": "Nhân viên không tồn tại"
+         * }
+         */
+        get("/users/{id}") {
+            try {
+                // Kiểm tra JWT token
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        mapOf("error" to "Thiếu hoặc token không hợp lệ")
+                    )
+                    return@get
+                }
+
+                val token = authHeader.removePrefix("Bearer ")
+                val claims = jwtService.verifyAccessToken(token)
+                if (claims == null) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        mapOf("error" to "Token không hợp lệ hoặc đã hết hạn")
+                    )
+                    return@get
+                }
+
+                val userId = call.parameters["id"]?.toIntOrNull()
+                    ?: return@get call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf("error" to "User ID không hợp lệ")
+                    )
+
+                // Gọi auth service
+                val response = authService.getStaffById(userId)
+                call.respond(HttpStatusCode.OK, response)
+
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    mapOf("error" to (e.message ?: "Nhân viên không tồn tại"))
+                )
+            }
+        }
+
+        /**
+         * UC09 (NEW): Lấy danh sách tất cả staff
+         * GET /api/auth/users?limit=50&offset=0
+         *
+         * Headers:
+         * Authorization: Bearer <access_token>
+         *
+         * Query parameters (tuỳ chọn):
+         * - limit: số lượng staff mỗi trang (mặc định 50)
+         * - offset: vị trí bắt đầu (mặc định 0)
+         *
+         * Response (200 OK):
+         * {
+         *   "total": 5,
+         *   "staff": [
+         *     {
+         *       "user_id": 1,
+         *       "email": "admin@example.com",
+         *       "full_name": "Admin User",
+         *       "phone": "0123456789",
+         *       "role": "ADMIN",
+         *       "status": "ACTIVE",
+         *       "last_login_at": "2024-01-15T10:30:00",
+         *       "created_at": "2024-01-15T10:30:00"
+         *     },
+         *     {
+         *       "user_id": 2,
+         *       "email": "staff@example.com",
+         *       "full_name": "Staff User",
+         *       "phone": "0987654321",
+         *       "role": "WAREHOUSE_STAFF",
+         *       "status": "ACTIVE",
+         *       "last_login_at": null,
+         *       "created_at": "2024-01-15T10:31:00"
+         *     }
+         *   ]
+         * }
+         *
+         * Error (401):
+         * {
+         *   "error": "Token không hợp lệ hoặc đã hết hạn"
+         * }
+         */
+        get("/users") {
+            try {
+                // Kiểm tra JWT token
+                val authHeader = call.request.headers["Authorization"]
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        mapOf("error" to "Thiếu hoặc token không hợp lệ")
+                    )
+                    return@get
+                }
+
+                val token = authHeader.removePrefix("Bearer ")
+                val claims = jwtService.verifyAccessToken(token)
+                if (claims == null) {
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        mapOf("error" to "Token không hợp lệ hoặc đã hết hạn")
+                    )
+                    return@get
+                }
+
+                // Kiểm tra xem user có phải ADMIN không (chỉ admin mới xem danh sách)
+                if (claims.role != "ADMIN") {
+                    call.respond(
+                        HttpStatusCode.Forbidden,
+                        mapOf("error" to "Chỉ admin mới có quyền xem danh sách nhân viên")
+                    )
+                    return@get
+                }
+
+                // Lấy query parameters
+                val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 50
+                val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
+
+                // Kiểm tra giá trị hợp lệ
+                if (limit < 1 || limit > 1000) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf("error" to "Limit phải từ 1 đến 1000")
+                    )
+                    return@get
+                }
+
+                if (offset < 0) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf("error" to "Offset không được âm")
+                    )
+                    return@get
+                }
+
+                // Gọi auth service
+                val response = authService.getAllStaff(limit, offset)
+                call.respond(HttpStatusCode.OK, response)
+
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to (e.message ?: "Lỗi lấy danh sách nhân viên"))
+                )
+            }
+        }
     }
 }

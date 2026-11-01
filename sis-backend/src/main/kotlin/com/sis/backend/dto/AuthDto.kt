@@ -112,6 +112,13 @@ data class RefreshTokenResponse(
     val expires_in: Long
 )
 
+// Danh sách staff (GET /api/auth/users)
+@Serializable
+data class StaffListResponse(
+    val total: Int,
+    val staff: List<UserResponse>
+)
+
 // Generic response wrapper
 @Serializable
 data class ApiResponse<T>(

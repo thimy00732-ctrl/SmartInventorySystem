@@ -392,4 +392,41 @@ class AuthService(
             created_at = user.created_at?.toString()
         )
     }
+
+    /**
+     * UC08 (NEW): Lấy chi tiết 1 staff theo ID
+     * @param userId - id của staff cần lấy
+     * @return UserResponse chứa thông tin chi tiết
+     */
+    fun getStaffById(userId: Int): UserResponse {
+        // Bước 1: Tìm staff theo ID
+        val user = userRepository.findById(userId)
+            ?: throw Exception("Nhân viên không tồn tại")
+
+        // Bước 2: Trả về thông tin
+        return convertToUserResponse(user)
+    }
+
+    /**
+     * UC09 (NEW): Lấy danh sách tất cả staff
+     * @param limit - số lượng staff mỗi trang (mặc định 50)
+     * @param offset - vị trí bắt đầu (mặc định 0)
+     * @return StaffListResponse chứa danh sách staff
+     */
+    fun getAllStaff(limit: Int = 50, offset: Int = 0): StaffListResponse {
+        // Bước 1: Lấy danh sách staff từ database
+        val staffList = userRepository.findAll(limit, offset)
+
+        // Bước 2: Lấy tổng số staff
+        val total = userRepository.countAll()
+
+        // Bước 3: Convert sang UserResponse list
+        val staffResponseList = staffList.map { convertToUserResponse(it) }
+
+        // Bước 4: Trả về response
+        return StaffListResponse(
+            total = total,
+            staff = staffResponseList
+        )
+    }
 }
