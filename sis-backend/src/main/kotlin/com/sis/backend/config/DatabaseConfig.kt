@@ -10,7 +10,7 @@ object DatabaseConfig {
     fun createDataSource(): DataSource {
         val config = HikariConfig().apply {
             jdbcUrl = System.getenv("DB_URL")
-                ?: "jdbc:mysql://localhost:3306/smart_inventory_db"
+                ?: "jdbc:mysql://localhost:3306/warehouse_db"
 
             username = System.getenv("DB_USER")
                 ?: "root"

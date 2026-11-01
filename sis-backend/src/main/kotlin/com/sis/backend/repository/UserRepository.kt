@@ -13,13 +13,13 @@ import java.sql.Timestamp
 class UserRepository(private val dataSource: DataSource) {
 
     /**
-     * UC01: Tìm người dùng theo email (dùng khi đăng nhập)
+     * UC03: Tìm người dùng theo email (dùng khi đăng nhập)
      * @param email - email của người dùng
      * @return User object nếu tìm thấy, null nếu không
      */
     fun findByEmail(email: String): User? {
         val query = """
-            SELECT user_id, email, password_hash, role, status, 
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
                    last_login_at, created_at, updated_at, 
                    must_change_password, temp_password_expires_at, password_changed_at
             FROM users 
@@ -47,7 +47,7 @@ class UserRepository(private val dataSource: DataSource) {
      */
     fun findById(userId: Int): User? {
         val query = """
-            SELECT user_id, email, password_hash, role, status, 
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
                    last_login_at, created_at, updated_at,
                    must_change_password, temp_password_expires_at, password_changed_at
             FROM users 
@@ -75,18 +75,20 @@ class UserRepository(private val dataSource: DataSource) {
      */
     fun save(user: User): User {
         val query = """
-            INSERT INTO users (email, password_hash, role, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO users (email, password_hash, full_name, phone, role, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
             connection.prepareStatement(query, java.sql.Statement.RETURN_GENERATED_KEYS).use { statement ->
                 statement.setString(1, user.email)
                 statement.setString(2, user.password_hash)
-                statement.setString(3, user.role)
-                statement.setString(4, user.status)
-                statement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()))
-                statement.setTimestamp(6, Timestamp.valueOf(LocalDateTime.now()))
+                statement.setString(3, user.full_name)
+                statement.setString(4, user.phone)
+                statement.setString(5, user.role)
+                statement.setString(6, user.status)
+                statement.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()))
+                statement.setTimestamp(8, Timestamp.valueOf(LocalDateTime.now()))
 
                 statement.executeUpdate()
 
@@ -123,14 +125,16 @@ class UserRepository(private val dataSource: DataSource) {
     }
 
     /**
-     * UC03: Cập nhật thông tin người dùng (email, role, status)
+     * UC03: Cập nhật thông tin người dùng (email, full_name, phone, role, status)
      * @param userId - id của người dùng
      * @param email - email mới (có thể null nếu không cập nhật)
+     * @param fullName - họ tên mới (có thể null nếu không cập nhật)
+     * @param phone - số điện thoại mới (có thể null nếu không cập nhật)
      * @param role - role mới (có thể null nếu không cập nhật)
      * @param status - status mới (có thể null nếu không cập nhật)
      * @return true nếu cập nhật thành công, false nếu không
      */
-    fun update(userId: Int, email: String?, role: String?, status: String?): Boolean {
+    fun update(userId: Int, email: String?, fullName: String?, phone: String?, role: String?, status: String?): Boolean {
         // Xây dựng query động tùy thuộc vào những trường nào cần cập nhật
         val updates = mutableListOf<String>()
         val params = mutableListOf<Any>()
@@ -138,6 +142,14 @@ class UserRepository(private val dataSource: DataSource) {
         if (email != null) {
             updates.add("email = ?")
             params.add(email)
+        }
+        if (fullName != null) {
+            updates.add("full_name = ?")
+            params.add(fullName)
+        }
+        if (phone != null) {
+            updates.add("phone = ?")
+            params.add(phone)
         }
         if (role != null) {
             updates.add("role = ?")
@@ -245,7 +257,7 @@ class UserRepository(private val dataSource: DataSource) {
      */
     fun findAll(): List<User> {
         val query = """
-            SELECT user_id, email, password_hash, role, status, 
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
                    last_login_at, created_at, updated_at,
                    must_change_password, temp_password_expires_at, password_changed_at
             FROM users 
@@ -275,6 +287,8 @@ class UserRepository(private val dataSource: DataSource) {
             user_id = resultSet.getInt("user_id"),
             email = resultSet.getString("email"),
             password_hash = resultSet.getString("password_hash"),
+            full_name = resultSet.getString("full_name"),
+            phone = resultSet.getString("phone"),
             role = resultSet.getString("role"),
             status = resultSet.getString("status"),
             last_login_at = resultSet.getTimestamp("last_login_at")?.toLocalDateTime(),

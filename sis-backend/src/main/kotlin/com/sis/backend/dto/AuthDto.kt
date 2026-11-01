@@ -30,12 +30,16 @@ data class LogoutRequest(
 data class CreateUserRequest(
     val email: String,
     val password: String,
+    val full_name: String? = null,  // Họ tên
+    val phone: String? = null,      // Số điện thoại
     val role: String // "ADMIN" hoặc "WAREHOUSE_STAFF"
 )
 
 @Serializable
 data class UpdateUserRequest(
     val email: String? = null,
+    val full_name: String? = null,  // Họ tên
+    val phone: String? = null,      // Số điện thoại
     val role: String? = null,
     val status: String? = null // "ACTIVE" hoặc "INACTIVE"
 )
@@ -44,6 +48,8 @@ data class UpdateUserRequest(
 data class UserResponse(
     val user_id: Int,
     val email: String,
+    val full_name: String?,  // Họ tên
+    val phone: String?,      // Số điện thoại
     val role: String,
     val status: String,
     val last_login_at: String?,
@@ -63,13 +69,17 @@ data class TokenValidationResponse(
 // UC05: Quản lý hồ sơ người dùng
 @Serializable
 data class UpdateProfileRequest(
-    val email: String? = null
+    val email: String? = null,
+    val full_name: String? = null,  // Họ tên
+    val phone: String? = null       // Số điện thoại
 )
 
 @Serializable
 data class ProfileResponse(
     val user_id: Int,
     val email: String,
+    val full_name: String?,  // Họ tên
+    val phone: String?,      // Số điện thoại
     val role: String,
     val status: String,
     val last_login_at: String?,

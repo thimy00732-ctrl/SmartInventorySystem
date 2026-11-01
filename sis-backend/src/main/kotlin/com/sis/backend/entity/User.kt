@@ -10,6 +10,8 @@ data class User(
     val user_id: Int? = null,
     val email: String,
     val password_hash: String,
+    val full_name: String? = null,  // Họ tên người dùng
+    val phone: String? = null,      // Số điện thoại
     val role: String, // "ADMIN" hoặc "WAREHOUSE_STAFF"
     val status: String = "ACTIVE", // "ACTIVE" hoặc "INACTIVE"
     val last_login_at: LocalDateTime? = null,

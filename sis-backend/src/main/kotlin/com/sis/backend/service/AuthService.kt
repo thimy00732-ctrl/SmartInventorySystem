@@ -134,7 +134,7 @@ class AuthService(
     /**
      * UC03: Cập nhật thông tin người dùng
      * @param userId - id của người dùng cần cập nhật
-     * @param request - UpdateUserRequest chứa email, role, status (tuỳ chọn)
+     * @param request - UpdateUserRequest chứa email, fullName, phone, role, status (tuỳ chọn)
      * @return UserResponse chứa thông tin cập nhật
      */
     fun updateUser(userId: Int, request: UpdateUserRequest): UserResponse {
@@ -161,7 +161,7 @@ class AuthService(
         }
 
         // Bước 5: Cập nhật database
-        val updated = userRepository.update(userId, request.email, request.role, request.status)
+        val updated = userRepository.update(userId, request.email, request.full_name, request.phone, request.role, request.status)
         if (!updated) {
             throw Exception("Không thể cập nhật người dùng")
         }
@@ -206,7 +206,7 @@ class AuthService(
     /**
      * UC05: Cập nhật hồ sơ người dùng (người dùng cập nhật thông tin của chính mình)
      * @param userId - id của người dùng
-     * @param request - UpdateProfileRequest chứa email mới (tuỳ chọn)
+     * @param request - UpdateProfileRequest chứa email, fullName, phone (tuỳ chọn)
      * @return ProfileResponse chứa thông tin hồ sơ cập nhật
      */
     fun updateProfile(userId: Int, request: UpdateProfileRequest): ProfileResponse {
@@ -222,9 +222,9 @@ class AuthService(
             }
         }
 
-        // Bước 3: Cập nhật email (chỉ cập nhật email, không update role/status)
-        if (request.email != null) {
-            userRepository.update(userId, request.email, null, null)
+        // Bước 3: Cập nhật thông tin (chỉ cập nhật email, full_name, phone, không update role/status)
+        if (request.email != null || request.full_name != null || request.phone != null) {
+            userRepository.update(userId, request.email, request.full_name, request.phone, null, null)
         }
 
         // Bước 4: Lấy user mới nhất
@@ -358,6 +358,8 @@ class AuthService(
         return UserResponse(
             user_id = user.user_id ?: 0,
             email = user.email,
+            full_name = user.full_name,
+            phone = user.phone,
             role = user.role,
             status = user.status,
             last_login_at = user.last_login_at?.toString(),
@@ -372,6 +374,8 @@ class AuthService(
         return ProfileResponse(
             user_id = user.user_id ?: 0,
             email = user.email,
+            full_name = user.full_name,
+            phone = user.phone,
             role = user.role,
             status = user.status,
             last_login_at = user.last_login_at?.toString(),
