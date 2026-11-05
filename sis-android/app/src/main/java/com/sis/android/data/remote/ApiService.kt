@@ -4,6 +4,7 @@ import com.sis.android.data.model.ApiResponse
 import com.sis.android.data.model.Category
 import com.sis.android.data.model.Product
 import retrofit2.http.*
+import retrofit2.Response
 import com.sis.android.data.model.ProductPageResponse
 import com.sis.android.data.model.CreateProductRequest
 import com.sis.android.data.model.UpdateProductRequest
@@ -36,19 +37,16 @@ interface ApiService {
     ): ProductResponse
 
     @DELETE("api/products/{id}")
-    suspend fun deleteProduct(
-        @Path(value = "id") id: Long
-    ): ApiResponse<Void> // Hoặc bỏ hẳn kiểu trả về nếu dùng Response thuần của Retrofit
+    suspend fun deleteProduct(@Path("id") productId: Long)
+
 
     @GET("api/products/barcode/{barcode}")
     suspend fun getProductByBarcode(
         @Path("barcode") barcode: String
     ): ApiResponse<Product>
 
-    @PATCH("api/products/{id}/deactivate")
-    suspend fun deactivateProduct(
-        @Path("id") id: Long
-    )
+    @PATCH("api/products/{id}/deactivate") // 👈 Sửa thành @PATCH cho đúng với backend
+    suspend fun deactivateProduct(@Path("id") productId: Long): ProductResponse
 
     @PATCH("api/products/{id}/reactivate")
     suspend fun reactivateProduct(

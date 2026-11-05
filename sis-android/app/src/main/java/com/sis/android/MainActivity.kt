@@ -28,11 +28,15 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+
                     val viewModel: ProductViewModel = viewModel()
                     val categoryViewModel: CategoryViewModel = viewModel()
 
+                    // Lấy danh sách sản phẩm thông qua UIState mới của ViewModel
+                    val uiState by viewModel.uiState.collectAsState()
                     val categories by categoryViewModel.categoryList.collectAsState()
 
+                    // Load categories khi khởi động
                     LaunchedEffect(Unit) {
                         categoryViewModel.loadCategories()
                     }
@@ -58,7 +62,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onScanClick = {
                                     currentScreen = "SCANNER"
-                                }
+                                 }
                             )
                         }
                         "FORM" -> {
@@ -70,10 +74,10 @@ class MainActivity : ComponentActivity() {
                                 onSave = { savedProduct ->
                                     formError = null
                                     if (productToEdit == null) {
-                                        // Thêm mới sản phẩm (Dùng đúng tham số 'product = savedProduct')
+                                        // Thêm mới sản phẩm (Truyền trực tiếp savedProduct hoặc đổi tên tham số cho khớp ViewModel)
                                         isSaving = true
                                         viewModel.addProduct(
-                                            product = savedProduct,
+                                            savedProduct, // 👈 Truyền trực tiếp đối tượng product không cần tên tham số `updated =`
                                             onSuccess = {
                                                 isSaving = false
                                                 currentScreen = "LIST"
@@ -87,7 +91,7 @@ class MainActivity : ComponentActivity() {
                                         // Cập nhật sản phẩm
                                         isSaving = true
                                         viewModel.updateProduct(
-                                            updated = savedProduct,
+                                            savedProduct, // 👈 Tương tự, truyền trực tiếp đối tượng product
                                             onSuccess = {
                                                 isSaving = false
                                                 currentScreen = "LIST"
@@ -115,8 +119,16 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = "FORM"
                                     },
                                     onDeleteClick = { deleteProd ->
-                                        viewModel.deleteProduct(deleteProd.productId)
-                                        currentScreen = "LIST"
+                                        // 🛠️ Bổ sung đầy đủ tham số onSuccess và onError cho hàm deleteProduct
+                                        viewModel.deleteProduct(
+                                            productId = deleteProd.productId,
+                                            onSuccess = {
+                                                currentScreen = "LIST"
+                                            },
+                                            onError = { errorMsg ->
+                                                android.util.Log.e("MainActivity", "Lỗi xóa: $errorMsg")
+                                            }
+                                        )
                                     },
                                     onToggleActiveClick = { toggleProd ->
                                         viewModel.toggleProductActive(
@@ -151,6 +163,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // Hộp thoại cảnh báo khi quét mã không có trong hệ thống
                     notFoundBarcode?.let { code ->
                         AlertDialog(
                             onDismissRequest = { notFoundBarcode = null },

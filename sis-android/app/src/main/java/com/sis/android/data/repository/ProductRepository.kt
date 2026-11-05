@@ -128,12 +128,16 @@ class ProductRepository {
             null
         }
     }
-    /** Xóa sản phẩm qua API DELETE /api/products/{id} */
+
+    /** Xóa sản phẩm (Backend sẽ kiểm tra điều kiện đã ngừng kinh doanh chưa) */
+
     suspend fun deleteProduct(productId: Long): Boolean {
         return try {
             apiService.deleteProduct(productId)
-            true
+            true // Nếu không throw exception nghĩa là xóa thành công trên server
         } catch (e: Exception) {
+            val errorBody = (e as? retrofit2.HttpException)?.response()?.errorBody()?.string()
+            android.util.Log.e("ProductRepo", "❌ Lỗi xóa sản phẩm: ${e.message} | Body: $errorBody", e)
             false
         }
     }
@@ -148,13 +152,14 @@ class ProductRepository {
         }
     }
 
-    /** Ngừng kinh doanh sản phẩm */
+    /** Ngừng kinh doanh sản phẩm qua API */
     suspend fun deactivateProduct(productId: Long): Boolean {
         return try {
             apiService.deactivateProduct(productId)
             true
         } catch (e: Exception) {
-            android.util.Log.e("ProductRepo", "❌ Error deactivating product: ${e.message}", e)
+            val errorBody = (e as? retrofit2.HttpException)?.response()?.errorBody()?.string()
+            android.util.Log.e("ProductRepo", "❌ Lỗi ngừng kinh doanh: ${e.message} | Body: $errorBody", e)
             false
         }
     }

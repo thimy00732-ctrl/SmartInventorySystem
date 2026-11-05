@@ -144,33 +144,53 @@ class ProductViewModel(
         }
     }
 
-    fun deleteProduct(productId: Long) {
-        allProductsCache = allProductsCache.filter { it.productId != productId }
-        updateFilteredState()
+    fun deleteProduct(
+        productId: Long,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val success = repository.deleteProduct(productId)
+                if (success) {
+                    // 🔄 Gọi tải lại danh sách sản phẩm từ server để UI cập nhật ngay lập tức
+                    loadProducts()
+                    onSuccess()
+                } else {
+                    onError("Không thể xóa sản phẩm từ server. Hãy kiểm tra lại trạng thái!")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductVM", "❌ Lỗi xóa sản phẩm: ${e.message}", e)
+                onError("Lỗi kết nối: ${e.localizedMessage}")
+            }
+        }
     }
 
     /** Ngừng kinh doanh sản phẩm */
-    fun toggleProductActive(product: Product, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+    fun toggleProductActive(
+        product: Product,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
             try {
                 val success = if (product.isActive) {
+                    // Gọi API ngừng kinh doanh (isActive = true -> false)
                     repository.deactivateProduct(product.productId)
                 } else {
+                    // Gọi API tiếp tục kinh doanh (isActive = false -> true)
                     repository.reactivateProduct(product.productId)
                 }
 
                 if (success) {
-                    val updatedProduct = product.copy(isActive = !product.isActive)
-                    allProductsCache = allProductsCache.map {
-                        if (it.productId == product.productId) updatedProduct else it
-                    }
-                    updateFilteredState()
-                    onSuccess()
+                    loadProducts() // Tải lại danh sách sản phẩm để cập nhật UI chung
+                    onSuccess()    // Báo thành công về màn hình chi tiết
                 } else {
-                    onError("Không thể ${if (product.isActive) "ngừng" else "kích hoạt"} sản phẩm")
+                    onError("Không thể thay đổi trạng thái sản phẩm từ server.")
                 }
             } catch (e: Exception) {
-                onError(e.localizedMessage ?: "Lỗi kết nối server")
+                android.util.Log.e("ProductVM", "❌ Lỗi toggle active: ${e.message}", e)
+                onError("Lỗi kết nối: ${e.localizedMessage}")
             }
         }
     }

@@ -492,4 +492,26 @@ class ProductService(
             availableQuantity = availableQuantity
         )
     }
+
+    /**UPDATE
+     * Xóa sản phẩm khỏi hệ thống.
+     * Chỉ cho phép xóa khi sản phẩm đã ở trạng thái ngừng kinh doanh (inactive).
+     *
+     * @param productId mã sản phẩm cần xóa
+     */
+    fun deleteProduct(productId: Long) {
+        val product = productRepository.findById(productId)
+            ?: throw ProductNotFoundException()
+
+        // 🔒 Nghiệp vụ: Phải ngừng kinh doanh mới được xóa
+        if (product.isActive) {
+            throw InvalidProductException("Vui lòng ngừng kinh doanh sản phẩm trước khi xóa.")
+        }
+
+        val success = productRepository.delete(productId)
+
+        if (!success) {
+            throw InvalidProductException("Không thể xóa sản phẩm từ cơ sở dữ liệu.")
+        }
+    }
 }

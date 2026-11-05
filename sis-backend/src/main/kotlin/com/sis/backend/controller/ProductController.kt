@@ -5,6 +5,10 @@ import com.sis.backend.dto.product.UpdateProductRequest
 import com.sis.backend.repository.ProductSearchFilter
 import com.sis.backend.service.ProductService
 
+/**UPDATE
+ * Xóa sản phẩm theo ID.
+ */
+
 /**
  * Tiếp nhận và xử lý các yêu cầu HTTP liên quan đến sản phẩm.
  *
@@ -94,4 +98,12 @@ class ProductController(
      */
     fun lookupProduct(code: String) =
         productService.lookupProduct(code)
+
+    /**
+     * Xóa sản phẩm theo ID.
+     */
+    fun deleteProduct(productId: Long) {
+        // Gọi xuống Service / Repository để thực hiện xóa trong Database
+        productService.deleteProduct(productId) // Thay thế productService bằng tên biến service thực tế của bạn
+    }
 }

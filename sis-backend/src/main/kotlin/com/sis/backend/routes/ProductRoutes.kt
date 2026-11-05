@@ -16,6 +16,10 @@ import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import java.math.BigDecimal
 
+/**UPDATE
+ * Xóa sản phẩm theo ID.
+ */
+
 /**
  * Khai báo các API quản lý sản phẩm.
  *
@@ -199,6 +203,20 @@ fun Route.productRoutes(
                 mapOf(
                     "message" to "Kích hoạt lại sản phẩm thành công."
                 )
+            )
+        }
+        /**
+         * Xóa sản phẩm theo ID.
+         */
+        delete("/{id}") {
+            val productId = call.parameters["id"]?.toLongOrNull()
+                ?: throw IllegalArgumentException("Mã sản phẩm không hợp lệ.")
+
+            productController.deleteProduct(productId)
+
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf("message" to "Xóa sản phẩm thành công.")
             )
         }
     }

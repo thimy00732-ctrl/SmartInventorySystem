@@ -21,6 +21,7 @@ import com.sis.android.ui.components.layout.HeaderIconButton
 import com.sis.android.ui.theme.Dimens
 import com.sis.android.ui.theme.color.CrudColors
 import com.sis.android.ui.theme.style.CrudStyles
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProductDetailScreen(
@@ -31,11 +32,26 @@ fun ProductDetailScreen(
     onToggleActiveClick: (Product) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var snackbarMessage by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
     val isActive = product.status == "ACTIVE"
+
+    // Hiển thị Snackbar khi có thông báo lỗi/nhắc nhở
+    LaunchedEffect(snackbarMessage) {
+        snackbarMessage?.let { msg ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(msg)
+                snackbarMessage = null
+            }
+        }
+    }
 
     Scaffold(
         containerColor = CrudColors.LightGreenBg,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onEditClick(product) },
@@ -56,7 +72,14 @@ fun ProductDetailScreen(
                 subtitle = product.sku,
                 onBack = onBackClick,
                 actions = {
-                    HeaderIconButton(Icons.Default.Delete, "Xóa") { showDeleteDialog = true }
+                    HeaderIconButton(Icons.Default.Delete, "Xóa") {
+                        // 🔒 Nghiệp vụ: Chỉ cho phép xóa khi đã NGỪNG KINH DOANH
+                        if (isActive) {
+                            snackbarMessage = "Vui lòng 'Ngừng kinh doanh' sản phẩm trước khi xóa!"
+                        } else {
+                            showDeleteDialog = true
+                        }
+                    }
                 }
             )
 
@@ -95,15 +118,15 @@ fun ProductDetailScreen(
                     )
                     TileRow(
                         "Tồn kho",
-                        "${product.stockQuantity.toInt()} ${product.unit}",
+                        "${product.stockQuantity} ${product.unit}",
                         "Tồn tối thiểu",
-                        "${product.minStock.toInt()} ${product.unit}"
+                        "${product.minStock} ${product.unit}"
                     )
                     TileRow(
                         "Tồn tối đa",
-                        "${product.maxStock.toInt()} ${product.unit}",
+                        "${product.maxStock} ${product.unit}",
                         "Khả dụng",
-                        "${product.availableQuantity.toInt()} ${product.unit}"
+                        "${product.availableQuantity} ${product.unit}"
                     )
                 }
 
@@ -114,8 +137,11 @@ fun ProductDetailScreen(
                         "Giá bán",
                         "${String.format("%,.0f", product.salePrice)} đ"
                     )
+
+                    // 🛠️ Tính toán lợi nhuận chính xác
                     val profit = product.salePrice - product.costPrice
                     val profitPercent = if (product.costPrice > 0) (profit / product.costPrice * 100) else 0.0
+
                     TileRow(
                         "Lợi nhuận/sp",
                         "${String.format("%,.0f", profit)} đ",
@@ -152,6 +178,7 @@ fun ProductDetailScreen(
             danger = true,
             onConfirm = {
                 showDeleteDialog = false
+                // Gọi callback onDeleteClick truyền từ NavHost/ViewModel xuống
                 onDeleteClick(product)
             },
             onDismiss = { showDeleteDialog = false }

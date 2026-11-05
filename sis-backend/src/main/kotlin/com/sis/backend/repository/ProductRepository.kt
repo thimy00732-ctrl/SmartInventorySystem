@@ -520,6 +520,21 @@ class ProductRepository(
         return executeUpdate(sql, productId)
     }
 
+    /**UPDATE
+     * Xóa sản phẩm khỏi cơ sở dữ liệu theo mã sản phẩm.
+     *
+     * @param productId Mã sản phẩm cần xóa.
+     * @return true nếu có bản ghi được xóa thành công.
+     */
+    fun delete(productId: Long): Boolean {
+        val sql = """
+            DELETE FROM products
+            WHERE product_id = ?
+        """.trimIndent()
+
+        return executeUpdate(sql, productId)
+    }
+
     /**
      * Kích hoạt lại sản phẩm đã ngừng kinh doanh.
      *
