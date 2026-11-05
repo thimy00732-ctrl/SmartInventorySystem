@@ -8,6 +8,7 @@ object RetrofitClient {
     // Nếu chạy thiết bị thật qua cáp/Wi-Fi, thay bằng IP LAN của máy tính (VD: 192.168.1.x:8080)
     private const val BASE_URL = "http://10.0.2.2:8080/"
 
+    //private const val BASE_URL = "http://192.168.1.149:8080//"
     val apiService: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)

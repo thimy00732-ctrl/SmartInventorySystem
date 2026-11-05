@@ -212,15 +212,38 @@ class ProductViewModel(
         onNotFound: (String) -> Unit
     ) {
         viewModelScope.launch {
+            val cleanCode = barcode.trim()
             try {
-                val product = repository.getProductByBarcode(barcode)
+                // 1. Thử tìm chính xác theo barcode trước
+                var product = repository.getProductByBarcode(cleanCode)
+
+                // 2. Nếu không thấy bằng barcode, thử tìm vét cạn trong cache xem có khớp với SKU không
+                if (product == null) {
+                    product = allProductsCache.find {
+                        it.sku.equals(cleanCode, ignoreCase = true) ||
+                                it.barcode.equals(cleanCode, ignoreCase = true)
+                    }
+                }
+
                 if (product != null) {
+                    android.util.Log.d("ProductVM", "✅ Quét thành công: ${product.productName}")
                     onFound(product)
                 } else {
-                    onNotFound(barcode)
+                    android.util.Log.w("ProductVM", "⚠️ Không tìm thấy sản phẩm cho mã: $cleanCode")
+                    onNotFound(cleanCode)
                 }
-            } catch (_: Exception) { // Thay 'e' bằng '_' để tránh cảnh báo biến không dùng tới
-                onNotFound(barcode)
+            } catch (e: Exception) {
+                android.util.Log.e("ProductVM", "❌ Lỗi API scan: ${e.message}")
+                // Thử tìm trong cache local phòng hờ mất mạng
+                val fallbackProduct = allProductsCache.find {
+                    it.sku.equals(cleanCode, ignoreCase = true) ||
+                            it.barcode.equals(cleanCode, ignoreCase = true)
+                }
+                if (fallbackProduct != null) {
+                    onFound(fallbackProduct)
+                } else {
+                    onNotFound(cleanCode)
+                }
             }
         }
     }
