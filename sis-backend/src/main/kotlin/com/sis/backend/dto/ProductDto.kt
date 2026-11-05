@@ -9,6 +9,11 @@ import kotlinx.serialization.Serializable
  *
  * SKU và barcode không bắt buộc nhập.
  * Backend sẽ tự sinh mã nếu người dùng để trống.
+ * UPDATE
+ * THÊM 3 TRƯỜNG NÀY VÀO DTO BACKEND:
+ * val stockQuantity: Int = 0,
+ * val reservedQuantity: Int = 0,
+ * val availableQuantity: Int = 0,
  */
 @Serializable
 data class CreateProductRequest(
@@ -86,9 +91,9 @@ data class ProductResponse(
     val createdAt: String,
     val updatedAt: String,
 
-    val stockQuantity: Int = 0,        // ← Châu THÊM 3 DÒNG NÀY
+    val stockQuantity: Int = 0,
     val reservedQuantity: Int = 0,
-    val availableQuantity: Int = 0
+    val availableQuantity: Int = 0,
 )
 
 /**

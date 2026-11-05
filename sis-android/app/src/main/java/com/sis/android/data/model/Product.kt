@@ -3,30 +3,34 @@ package com.sis.android.data.model
 import com.google.gson.annotations.SerializedName
 
 data class Product(
-    @SerializedName("productId") val productId: Long = 0L,
+    @SerializedName("productId", alternate = ["product_id"]) val productId: Long = 0L,
     @SerializedName("sku") val sku: String = "",
     @SerializedName("barcode") val barcode: String? = null,
-    @SerializedName("productName") val productName: String = "",
-    @SerializedName("imageUrl") val imageUrl: String? = null,
-    @SerializedName("categoryId") val categoryId: Long? = null,
-    @SerializedName("supplierId") val supplierId: Long? = null,
+    @SerializedName("productName", alternate = ["product_name"]) val productName: String = "",
+    @SerializedName("imageUrl", alternate = ["image_url"]) val imageUrl: String? = null,
+    @SerializedName("categoryId", alternate = ["category_id"]) val categoryId: Long? = null,
+    @SerializedName("supplierId", alternate = ["supplier_id"]) val supplierId: Long? = null,
     @SerializedName("unit") val unit: String = "Cái",
-    @SerializedName("costPrice") val costPrice: Double = 0.0,
-    @SerializedName("salePrice") val salePrice: Double = 0.0,
-    @SerializedName("minStock") val minStock: Double = 0.0,
-    @SerializedName("maxStock") val maxStock: Double = 1000.0,
-    @SerializedName("isActive") val isActive: Boolean = true,
+    @SerializedName("costPrice", alternate = ["cost_price"]) val costPrice: Double = 0.0,
+    @SerializedName("salePrice", alternate = ["sale_price"]) val salePrice: Double = 0.0,
+    @SerializedName("minStock", alternate = ["min_stock"]) val minStock: Int = 0,
+    @SerializedName("maxStock", alternate = ["max_stock"]) val maxStock: Int = 1000,
+    @SerializedName("isActive", alternate = ["is_active"]) val isActive: Boolean = true,
 
-    // 3 trường tồn kho từ API backend
-    @SerializedName("stockQuantity") val stockQuantity: Double = 0.0,
-    @SerializedName("reservedQuantity") val reservedQuantity: Double = 0.0,
-    @SerializedName("availableQuantity") val availableQuantity: Double = 0.0,
+    @SerializedName("stockQuantity", alternate = ["stock_quantity"])
+    val stockQuantity: Int = 0,
 
-    // Các trường mở rộng (không có trong API)
+    @SerializedName("reservedQuantity", alternate = ["reserved_quantity"])
+    val reservedQuantity: Int = 0,
+
     val description: String? = null,
     val warehouseName: String = "Kho Trung tâm",
     val categoryName: String = "Chưa phân loại"
 ) {
+    // 🚀 Tự động tính toán số lượng khả dụng = Tồn kho - Giữ chỗ (đảm bảo không bị âm)
+    val availableQuantity: Int
+        get() = (stockQuantity - reservedQuantity).coerceAtLeast(0)
+
     val status: String
         get() = if (isActive) "ACTIVE" else "INACTIVE"
 

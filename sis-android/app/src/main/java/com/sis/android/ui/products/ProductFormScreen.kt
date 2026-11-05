@@ -37,7 +37,12 @@ fun ProductFormScreen(
     var productName by remember { mutableStateOf(productToEdit?.productName ?: "") }
     var barcode by remember { mutableStateOf(productToEdit?.barcode ?: "") }
     var unit by remember { mutableStateOf(productToEdit?.unit ?: "") }
-    var minStock by remember { mutableStateOf(productToEdit?.minStock?.toString() ?: "") }
+    var minStock by remember { mutableStateOf(productToEdit?.minStock?.toString() ?: "0") }
+    var maxStock by remember { mutableStateOf(productToEdit?.maxStock?.toString() ?: "1000") }
+
+    var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") }
+    var salePrice by remember { mutableStateOf(productToEdit?.salePrice?.toString() ?: "") }
+
     var status by remember { mutableStateOf(productToEdit?.status ?: "ACTIVE") }
     var description by remember { mutableStateOf(productToEdit?.description ?: "") }
     var categoryId by remember { mutableStateOf(productToEdit?.categoryId) }
@@ -90,7 +95,7 @@ fun ProductFormScreen(
                     )
                 }
 
-                AppCard(title = "Đơn vị & tồn kho") {
+                AppCard(title = "Đơn vị & định mức tồn kho") {
                     AppTextField(unit, { unit = it }, "Đơn vị tính *")
                     ChipRow {
                         UNIT_SUGGESTIONS.forEach { s ->
@@ -99,6 +104,21 @@ fun ProductFormScreen(
                     }
                     AppTextField(
                         minStock, { minStock = it }, "Định mức tồn tối thiểu *",
+                        keyboardType = KeyboardType.Number
+                    )
+                    AppTextField(
+                        maxStock, { maxStock = it }, "Định mức tồn tối đa *",
+                        keyboardType = KeyboardType.Number
+                    )
+                }
+
+                AppCard(title = "Giá cả") {
+                    AppTextField(
+                        costPrice, { costPrice = it }, "Giá vốn (đ) *",
+                        keyboardType = KeyboardType.Decimal
+                    )
+                    AppTextField(
+                        salePrice, { salePrice = it }, "Giá bán (đ) *",
                         keyboardType = KeyboardType.Decimal
                     )
                 }
@@ -120,28 +140,39 @@ fun ProductFormScreen(
                 Button(
                     enabled = !isSaving,
                     onClick = {
-                        val stock = minStock.toDoubleOrNull()
+                        val stockMin = minStock.toIntOrNull()
+                        val stockMax = maxStock.toIntOrNull()
+                        val priceCost = costPrice.toDoubleOrNull()
+                        val priceSale = salePrice.toDoubleOrNull()
+
                         when {
                             productName.isBlank() || unit.isBlank() ->
                                 localError = "Vui lòng điền Tên sản phẩm và Đơn vị tính!"
-                            stock == null || stock < 0.0 ->
-                                localError = "Định mức tồn tối thiểu phải là số hợp lệ >= 0"
+                            stockMin == null || stockMin < 0 ->
+                                localError = "Định mức tồn tối thiểu phải là số nguyên hợp lệ >= 0"
+                            stockMax == null || stockMax < 0 ->
+                                localError = "Định mức tồn tối đa phải là số nguyên hợp lệ >= 0"
+                            priceCost == null || priceCost < 0 ->
+                                localError = "Giá vốn phải là số hợp lệ >= 0"
+                            priceSale == null || priceSale < 0 ->
+                                localError = "Giá bán phải là số hợp lệ >= 0"
                             else -> {
-                                // Tiếp tục xử lý lưu dữ liệu ở đây
                                 localError = null
                                 onSave(
-                                    (productToEdit ?: Product()).copy(  // <-- Dùng .copy() thay vì constructor
+                                    (productToEdit ?: Product()).copy(
                                         productId = productToEdit?.productId ?: 0L,
-                                        sku = sku.trim(),
-                                        barcode = barcode.ifBlank { null },
+                                        sku = sku.trim().takeIf { it.isNotBlank() } ?: "",
+                                        barcode = barcode.trim().takeIf { it.isNotBlank() },
                                         productName = productName.trim(),
                                         unit = unit.trim(),
-                                        minStock = stock,
+                                        minStock = stockMin,
+                                        maxStock = stockMax,
+                                        costPrice = priceCost,
+                                        salePrice = priceSale,
                                         categoryId = categoryId,
-                                        isActive = (status == "ACTIVE")  // <-- Convert String sang Boolean
+                                        isActive = (status == "ACTIVE")
                                     )
                                 )
-
                             }
                         }
                     },

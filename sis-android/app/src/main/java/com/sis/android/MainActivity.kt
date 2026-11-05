@@ -17,6 +17,7 @@ import com.sis.android.ui.theme.SISTheme
 import com.sis.android.ui.viewmodel.ProductViewModel
 import com.sis.android.ui.viewmodel.CategoryViewModel
 import androidx.activity.enableEdgeToEdge
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,16 +30,15 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val viewModel: ProductViewModel = viewModel()
                     val categoryViewModel: CategoryViewModel = viewModel()
-                    
-                    // Lấy danh sách sản phẩm thông qua UIState mới của ViewModel
-                    val uiState by viewModel.uiState.collectAsState()
+
                     val categories by categoryViewModel.categoryList.collectAsState()
-                    
-                    // Load categories khi khởi động
+
                     LaunchedEffect(Unit) {
                         categoryViewModel.loadCategories()
                     }
 
+                    var isSaving by remember { mutableStateOf(false) }
+                    var formError by remember { mutableStateOf<String?>(null) }
                     var currentScreen by remember { mutableStateOf("LIST") }
                     var selectedProduct by remember { mutableStateOf<Product?>(null) }
                     var productToEdit by remember { mutableStateOf<Product?>(null) }
@@ -61,21 +61,48 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        "SCANNER" -> {
-                            BarcodeScannerScreen(
-                                onBarcodeScanned = { scannedCode ->
-                                    viewModel.scanBarcode(
-                                        barcode = scannedCode,
-                                        onFound = { foundProduct ->
-                                            selectedProduct = foundProduct
-                                            currentScreen = "DETAIL"
-                                        },
-                                        onNotFound = { code ->
-                                            notFoundBarcode = code
-                                        }
-                                    )
+                        "FORM" -> {
+                            ProductFormScreen(
+                                productToEdit = productToEdit,
+                                categories = categories,
+                                isSaving = isSaving,
+                                serverError = formError,
+                                onSave = { savedProduct ->
+                                    formError = null
+                                    if (productToEdit == null) {
+                                        // Thêm mới sản phẩm (Dùng đúng tham số 'product = savedProduct')
+                                        isSaving = true
+                                        viewModel.addProduct(
+                                            product = savedProduct,
+                                            onSuccess = {
+                                                isSaving = false
+                                                currentScreen = "LIST"
+                                            },
+                                            onError = { errorMsg ->
+                                                isSaving = false
+                                                formError = errorMsg
+                                            }
+                                        )
+                                    } else {
+                                        // Cập nhật sản phẩm
+                                        isSaving = true
+                                        viewModel.updateProduct(
+                                            updated = savedProduct,
+                                            onSuccess = {
+                                                isSaving = false
+                                                currentScreen = "LIST"
+                                            },
+                                            onError = { errorMsg ->
+                                                isSaving = false
+                                                formError = errorMsg
+                                            }
+                                        )
+                                    }
                                 },
-                                onBackClick = { currentScreen = "LIST" }
+                                onBackClick = {
+                                    formError = null
+                                    currentScreen = "LIST"
+                                }
                             )
                         }
                         "DETAIL" -> {
@@ -92,41 +119,38 @@ class MainActivity : ComponentActivity() {
                                         currentScreen = "LIST"
                                     },
                                     onToggleActiveClick = { toggleProd ->
-                                        // Gọi API để toggle trạng thái
                                         viewModel.toggleProductActive(
                                             product = toggleProd,
                                             onSuccess = {
-                                                // Cập nhật UI sau khi thành công
                                                 selectedProduct = toggleProd.copy(isActive = !toggleProd.isActive)
                                             },
                                             onError = { errorMsg ->
-                                                // TODO: Hiển thị toast/snackbar lỗi
                                                 android.util.Log.e("MainActivity", "Error: $errorMsg")
                                             }
                                         )
                                     }
-
                                 )
                             }
                         }
-                        "FORM" -> {
-                            ProductFormScreen(
-                                productToEdit = productToEdit,
-                                categories = categories,
-                                onSave = { savedProduct ->
-                                    if (productToEdit == null) {
-                                        viewModel.addProduct(savedProduct)
-                                    } else {
-                                        viewModel.updateProduct(savedProduct)
-                                    }
-                                    currentScreen = "LIST"
+                        "SCANNER" -> {
+                            BarcodeScannerScreen(
+                                onBarcodeScanned = { code ->
+                                    viewModel.scanBarcode(
+                                        barcode = code,
+                                        onFound = { product ->
+                                            selectedProduct = product
+                                            currentScreen = "DETAIL"
+                                        },
+                                        onNotFound = { notFoundCode ->
+                                            notFoundBarcode = notFoundCode
+                                        }
+                                    )
                                 },
                                 onBackClick = { currentScreen = "LIST" }
                             )
                         }
                     }
 
-                    // Hộp thoại cảnh báo khi quét mã không có trong hệ thống
                     notFoundBarcode?.let { code ->
                         AlertDialog(
                             onDismissRequest = { notFoundBarcode = null },

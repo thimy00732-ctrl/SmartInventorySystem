@@ -24,6 +24,12 @@ import com.sis.backend.repository.SupplierRepository
 import com.sis.backend.service.SupplierService
 import com.sis.backend.controller.SupplierController
 import com.sis.backend.routes.supplierRoutes
+import com.sis.backend.repository.InventoryRepository
+
+/*UPDATE
+*import com.sis.backend.repository.InventoryRepository
+*Bổ sung thêm repository InventoryRepository(dataSource)
+* */
 lateinit var dataSource: DataSource
     private set
 
@@ -104,7 +110,8 @@ fun Application.module() {
                 ProductService(
                     ProductRepository(dataSource),
                     CategoryRepository(dataSource),
-                    SupplierRepository(dataSource)
+                    SupplierRepository(dataSource),
+
                 )
             )
         )

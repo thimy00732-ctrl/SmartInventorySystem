@@ -7,22 +7,20 @@ import com.sis.android.data.repository.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface ProductUiState {
     object Loading : ProductUiState
     data class Success(
         val products: List<Product>,
-        val totalStock: Double,
-        val totalReserved: Double,
-        val totalAvailable: Double,
+        val totalStock: Int,         // Đổi thành Int
+        val totalReserved: Int,      // Đổi thành Int
+        val totalAvailable: Int,     // Đổi thành Int
         val lowStockCount: Int,
         val nearExpiryCount: Int
     ) : ProductUiState
     data class Error(val message: String) : ProductUiState
 }
-
 
 class ProductViewModel(
     private val repository: ProductRepository = ProductRepository()
@@ -47,8 +45,6 @@ class ProductViewModel(
         viewModelScope.launch {
             _uiState.value = ProductUiState.Loading
             try {
-                // Gọi repository lấy danh sách sản phẩm từ API thực tế
-                // (Có thể truyền _searchQuery.value nếu API hỗ trợ tìm kiếm trực tiếp trên server)
                 val list = repository.getProducts(keyword = _searchQuery.value.ifEmpty { null })
                 allProductsCache = list
                 updateFilteredState()
@@ -80,19 +76,19 @@ class ProductViewModel(
 
             val matchesTab = when (tab) {
                 "LOW_STOCK" -> product.availableQuantity <= product.minStock
-                "EXPIRING" -> false // Giả lập logic cận hạn (có thể bổ sung khi có hạn sử dụng chi tiết)
+                "EXPIRING" -> false
                 else -> true
             }
 
             matchesSearch && matchesTab
         }
 
-        // Tính toán các chỉ số tổng hợp thống kê cho Dashboard Header
+        // Tính toán các chỉ số tổng hợp thống kê cho Dashboard Header (Dùng sumOf với kiểu Int)
         val totalStock = allProductsCache.sumOf { it.stockQuantity }
         val totalReserved = allProductsCache.sumOf { it.reservedQuantity }
         val totalAvailable = allProductsCache.sumOf { it.availableQuantity }
         val lowStockCount = allProductsCache.count { it.availableQuantity <= it.minStock }
-        val nearExpiryCount = 5 // Giá trị demo theo UI Figma
+        val nearExpiryCount = 5
 
         _uiState.value = ProductUiState.Success(
             products = filtered,
@@ -104,15 +100,48 @@ class ProductViewModel(
         )
     }
 
-    // Các hàm CRUD hỗ trợ mở rộng cho các nhiệm vụ sau
-    fun addProduct(product: Product) {
-        allProductsCache = listOf(product) + allProductsCache
-        updateFilteredState()
+    // CRUD: Thêm sản phẩm mới gọi API qua Repository
+    fun addProduct(product: Product, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val createdProduct = repository.createProduct(product)
+                if (createdProduct != null) {
+                    allProductsCache = listOf(createdProduct) + allProductsCache
+                    updateFilteredState()
+                    onSuccess()
+                } else {
+                    onError("Không thể tạo sản phẩm trên server.")
+                }
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Lỗi kết nối server khi thêm sản phẩm.")
+            }
+        }
     }
 
-    fun updateProduct(updated: Product) {
-        allProductsCache = allProductsCache.map { if (it.productId == updated.productId) updated else it }
-        updateFilteredState()
+    // CRUD: Cập nhật sản phẩm gọi API qua Repository
+    fun updateProduct(
+        updated: Product,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                // Gọi repository để bắn PUT request lên server
+                val resultProduct = repository.updateProduct(updated.productId, updated)
+                if (resultProduct != null) {
+                    // Cập nhật thành công trên server thì mới đổi cache ở local
+                    allProductsCache = allProductsCache.map {
+                        if (it.productId == resultProduct.productId) resultProduct else it
+                    }
+                    updateFilteredState()
+                    onSuccess()
+                } else {
+                    onError("Không thể cập nhật sản phẩm trên server.")
+                }
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Lỗi kết nối server khi cập nhật sản phẩm.")
+            }
+        }
     }
 
     fun deleteProduct(productId: Long) {
@@ -129,12 +158,11 @@ class ProductViewModel(
                 } else {
                     repository.reactivateProduct(product.productId)
                 }
-                
+
                 if (success) {
-                    // Cập nhật product trong cache
                     val updatedProduct = product.copy(isActive = !product.isActive)
-                    allProductsCache = allProductsCache.map { 
-                        if (it.productId == product.productId) updatedProduct else it 
+                    allProductsCache = allProductsCache.map {
+                        if (it.productId == product.productId) updatedProduct else it
                     }
                     updateFilteredState()
                     onSuccess()
@@ -147,7 +175,6 @@ class ProductViewModel(
         }
     }
 
-    // Thêm vào trong ProductViewModel.kt
     fun scanBarcode(
         barcode: String,
         onFound: (Product) -> Unit,
@@ -161,7 +188,7 @@ class ProductViewModel(
                 } else {
                     onNotFound(barcode)
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) { // Thay 'e' bằng '_' để tránh cảnh báo biến không dùng tới
                 onNotFound(barcode)
             }
         }

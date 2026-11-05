@@ -5,7 +5,9 @@ import com.sis.android.data.model.Category
 import com.sis.android.data.model.Product
 import retrofit2.http.*
 import com.sis.android.data.model.ProductPageResponse
-
+import com.sis.android.data.model.CreateProductRequest
+import com.sis.android.data.model.UpdateProductRequest
+import com.sis.android.data.model.ProductResponse
 interface ApiService {
 
     @GET("api/products")
@@ -24,19 +26,19 @@ interface ApiService {
 
     @POST("api/products")
     suspend fun createProduct(
-        @Body product: Product
-    ): ApiResponse<Product>
+        @Body request: CreateProductRequest
+    ): Product
 
     @PUT("api/products/{id}")
     suspend fun updateProduct(
-        @Path("id") id: Long,
-        @Body product: Product
-    ): ApiResponse<Product>
+        @Path("id") productId: Long,
+        @Body request: UpdateProductRequest
+    ): ProductResponse
 
     @DELETE("api/products/{id}")
     suspend fun deleteProduct(
-        @Path("id") id: Long
-    ): ApiResponse<Unit>
+        @Path(value = "id") id: Long
+    ): ApiResponse<Void> // Hoặc bỏ hẳn kiểu trả về nếu dùng Response thuần của Retrofit
 
     @GET("api/products/barcode/{barcode}")
     suspend fun getProductByBarcode(

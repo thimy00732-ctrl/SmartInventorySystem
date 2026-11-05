@@ -15,22 +15,31 @@ import com.sis.backend.exception.ProductNotFoundException
 import com.sis.backend.repository.CategoryRepository
 import com.sis.backend.repository.ProductRepository
 import com.sis.backend.repository.SupplierRepository
+
 import java.math.BigDecimal
 import java.security.SecureRandom
 import java.time.LocalDateTime
 import com.sis.backend.dto.product.ProductPageResponse
 import com.sis.backend.repository.ProductSearchFilter
 
+
 /**
  * Xử lý nghiệp vụ quản lý sản phẩm.
  *
  * Chịu trách nhiệm kiểm tra dữ liệu, sinh mã sản phẩm,
  * xác thực danh mục và nhà cung cấp trước khi thao tác dữ liệu.
+ * UPDATE
+ *
+ * Tiêm (inject) thêm repository quản lý kho
+ *
  */
+
 class ProductService(
     private val productRepository: ProductRepository,
     private val categoryRepository: CategoryRepository,
-    private val supplierRepository: SupplierRepository
+    private val supplierRepository: SupplierRepository,
+
+
 ) {
 
     private val random = SecureRandom()
@@ -157,6 +166,9 @@ class ProductService(
 
         // Repository trả về ID của sản phẩm vừa tạo.
         val createdProductId = productRepository.create(product)
+
+
+
 
         // Lấy lại dữ liệu vừa lưu để bảo đảm có ID và timestamp từ database.
         val createdProduct = productRepository.findById(createdProductId)
