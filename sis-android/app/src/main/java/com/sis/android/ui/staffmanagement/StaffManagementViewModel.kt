@@ -1,17 +1,22 @@
-
 package com.sis.android.ui.staffmanagement
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.sis.android.data.model.ManagedStaff
-import com.sis.android.data.repository.InMemoryStaffManagementRepository
 import com.sis.android.data.repository.StaffManagementRepository
+import com.sis.android.data.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class StaffManagementUiState(
     val staff: List<ManagedStaff> = emptyList(),
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val successMessage: String? = null
 ) {
     val filteredStaff: List<ManagedStaff>
         get() = staff.filter {
@@ -24,43 +29,127 @@ data class StaffManagementUiState(
 }
 
 class StaffManagementViewModel(
-    private val repository: StaffManagementRepository =
-        InMemoryStaffManagementRepository()
+    private val repository: StaffManagementRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
-    private val _uiState =
-        MutableStateFlow(
-            StaffManagementUiState(
-                staff = repository.getStaff()
-            )
-        )
-
+    private val _uiState = MutableStateFlow(StaffManagementUiState())
     val uiState: StateFlow<StaffManagementUiState> = _uiState
 
-    fun search(query: String) {
-        _uiState.update {
-            it.copy(searchQuery = query)
+    init {
+        loadStaff()
+    }
+
+    /** Tải danh sách nhân viên từ API */
+    fun loadStaff() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val token = sessionManager.getBearerToken()
+                    ?: throw Exception("Chưa đăng nhập")
+                val staffList = repository.getStaff(token)
+                _uiState.update {
+                    it.copy(isLoading = false, staff = staffList)
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message)
+                }
+            }
         }
     }
 
-    fun addStaff(staff: ManagedStaff) {
-        repository.addStaff(staff)
-        refresh()
+    fun search(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
     }
 
+    /** Tạo nhân viên mới qua API */
+    fun addStaff(
+        fullName: String,
+        email: String,
+        phone: String,
+        password: String,
+        role: String
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val token = sessionManager.getBearerToken()
+                    ?: throw Exception("Chưa đăng nhập")
+                val newStaff = repository.addStaff(token, fullName, email, phone, password, role)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        staff = it.staff + newStaff,
+                        successMessage = "Tạo nhân viên thành công"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message)
+                }
+            }
+        }
+    }
+
+    /** Cập nhật thông tin nhân viên qua API */
     fun updateStaff(staff: ManagedStaff) {
-        repository.updateStaff(staff)
-        refresh()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val token = sessionManager.getBearerToken()
+                    ?: throw Exception("Chưa đăng nhập")
+                val updated = repository.updateStaff(token, staff)
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        staff = state.staff.map { if (it.id == updated.id) updated else it },
+                        successMessage = "Cập nhật thành công"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message)
+                }
+            }
+        }
     }
 
+    /** Đổi trạng thái active/inactive nhân viên */
     fun toggleActive(staff: ManagedStaff) {
-        repository.setActive(staff.id, !staff.isActive)
-        refresh()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val token = sessionManager.getBearerToken()
+                    ?: throw Exception("Chưa đăng nhập")
+                val updated = repository.setActive(token, staff.id, !staff.isActive)
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        staff = state.staff.map { if (it.id == updated.id) updated else it }
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message)
+                }
+            }
+        }
     }
 
-    private fun refresh() {
-        _uiState.update {
-            it.copy(staff = repository.getStaff())
+    fun clearMessages() {
+        _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+    }
+
+    // ─── Factory ──────────────────────────────────────────────────────────────
+
+    class Factory(
+        private val repository: StaffManagementRepository,
+        private val sessionManager: SessionManager
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return StaffManagementViewModel(repository, sessionManager) as T
         }
     }
 }

@@ -13,27 +13,26 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.sis.android.data.repository.AuthRepository
-import com.sis.android.data.session.SessionManager
+import com.sis.android.di.AppModule
 import com.sis.android.ui.auth.LoginScreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
-
-    val sessionManager = remember {
-        SessionManager(context)
-    }
+    val scope = rememberCoroutineScope()
 
     val authRepository = remember {
-        AuthRepository(sessionManager)
+        AppModule.provideAuthRepository(context)
     }
 
     // Kiểm tra phiên đăng nhập đã lưu khi mở ứng dụng.
@@ -54,8 +53,10 @@ fun AppNavigation() {
                     title = "Trang quản trị viên",
                     role = "ADMIN",
                     onLogout = {
-                        authRepository.logout()
-                        role = null
+                        scope.launch {
+                            authRepository.logout()
+                            role = null
+                        }
                     }
                 )
             }
@@ -65,15 +66,19 @@ fun AppNavigation() {
                     title = "Trang nhân viên",
                     role = "STAFF",
                     onLogout = {
-                        authRepository.logout()
-                        role = null
+                        scope.launch {
+                            authRepository.logout()
+                            role = null
+                        }
                     }
                 )
             }
 
             else -> {
-                authRepository.logout()
-                role = null
+                LaunchedEffect(Unit) {
+                    authRepository.logout()
+                    role = null
+                }
             }
         }
     }

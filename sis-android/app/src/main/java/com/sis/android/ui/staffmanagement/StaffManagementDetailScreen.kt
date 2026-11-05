@@ -130,18 +130,25 @@ fun StaffManagementDetailScreen(
                         )
 
                         DetailInformationRow(
-                            label = "Chi nhánh",
-                            value = staff.branch
+                            label = "Số điện thoại",
+                            value = staff.phone.ifBlank { "—" }
                         )
 
                         DetailInformationRow(
                             label = "Vai trò",
                             value = when (staff.role) {
                                 "ADMIN" -> "Quản trị viên"
-                                "MANAGER" -> "Quản lý"
-                                else -> "Nhân viên"
+                                "WAREHOUSE_STAFF" -> "Nhân viên kho"
+                                else -> staff.role
                             }
                         )
+
+                        staff.createdAt?.let {
+                            DetailInformationRow(
+                                label = "Ngày tạo",
+                                value = it.take(10)  // chỉ lấy phần ngày yyyy-MM-dd
+                            )
+                        }
 
                         Row(
                             modifier = Modifier

@@ -1,75 +1,142 @@
-
 package com.sis.android.data.repository
 
 import com.sis.android.data.model.ManagedStaff
+import com.sis.android.data.model.toManagedStaff
+import com.sis.android.data.remote.ApiService
+import com.sis.android.data.remote.CreateUserRequest
+import com.sis.android.data.remote.UpdateUserRequest
+import java.io.IOException
 
-interface StaffManagementRepository {
-    fun getStaff(): List<ManagedStaff>
+/**
+ * Repository quản lý nhân viên — gọi API backend thực.
+ * Tất cả các phương thức đều là suspend function (chạy trên coroutine).
+ */
+class StaffManagementRepository(
+    private val apiService: ApiService
+) {
 
-    fun addStaff(staff: ManagedStaff)
+    /**
+     * Lấy toàn bộ danh sách nhân viên.
+     * GET /api/auth/users?limit=100&offset=0
+     */
+    suspend fun getStaff(bearerToken: String): List<ManagedStaff> {
+        val response = try {
+            apiService.getUsers(bearerToken, limit = 100, offset = 0)
+        } catch (e: Exception) {
+            throw IOException("Không thể tải danh sách nhân viên: ${e.message}")
+        }
 
-    fun updateStaff(staff: ManagedStaff)
+        if (!response.isSuccessful) {
+            val msg = parseError(response.errorBody()?.string())
+            throw Exception(msg ?: "Lỗi tải danh sách nhân viên (${response.code()})")
+        }
 
-    fun setActive(id: Int, isActive: Boolean)
-}
+        return response.body()?.staff?.map { it.toManagedStaff() } ?: emptyList()
+    }
 
-class InMemoryStaffManagementRepository :
-    StaffManagementRepository {
-
-    private val staffList = mutableListOf(
-        ManagedStaff(
-            id = 1,
-            fullName = "Trần Thị Bình",
-            email = "binh.tran@warehouse.vn",
-            branch = "Kho Trung tâm",
-            role = "STAFF",
-            isActive = true
-        ),
-        ManagedStaff(
-            id = 2,
-            fullName = "Lê Minh Khoa",
-            email = "khoa.le@warehouse.vn",
-            branch = "Kho Chi nhánh 1",
-            role = "MANAGER",
-            isActive = true
-        ),
-        ManagedStaff(
-            id = 3,
-            fullName = "Phạm Thu Lan",
-            email = "lan.pham@warehouse.vn",
-            branch = "Kho Chi nhánh 2",
-            role = "STAFF",
-            isActive = false
+    /**
+     * Tạo nhân viên mới.
+     * POST /api/auth/users
+     * Backend yêu cầu: email, password, full_name, phone, role ("ADMIN"|"WAREHOUSE_STAFF")
+     */
+    suspend fun addStaff(
+        bearerToken: String,
+        fullName: String,
+        email: String,
+        phone: String,
+        password: String,
+        role: String
+    ): ManagedStaff {
+        val request = CreateUserRequest(
+            email = email.trim(),
+            password = password,
+            fullName = fullName.trim(),
+            phone = phone.trim(),
+            role = role
         )
-    )
 
-    override fun getStaff(): List<ManagedStaff> {
-        return staffList.toList()
-    }
-
-    override fun addStaff(staff: ManagedStaff) {
-        val newId = (staffList.maxOfOrNull { it.id } ?: 0) + 1
-        staffList.add(staff.copy(id = newId))
-    }
-
-    override fun updateStaff(staff: ManagedStaff) {
-        val index = staffList.indexOfFirst {
-            it.id == staff.id
+        val response = try {
+            apiService.createUser(bearerToken, request)
+        } catch (e: Exception) {
+            throw IOException("Không thể tạo nhân viên: ${e.message}")
         }
 
-        if (index != -1) {
-            staffList[index] = staff
+        if (!response.isSuccessful) {
+            val msg = parseError(response.errorBody()?.string())
+            throw Exception(msg ?: "Lỗi tạo nhân viên (${response.code()})")
         }
+
+        return response.body()?.toManagedStaff()
+            ?: throw Exception("Phản hồi không hợp lệ từ máy chủ")
     }
 
-    override fun setActive(id: Int, isActive: Boolean) {
-        val index = staffList.indexOfFirst {
-            it.id == id
+    /**
+     * Cập nhật thông tin nhân viên.
+     * PUT /api/auth/users/{id}
+     */
+    suspend fun updateStaff(
+        bearerToken: String,
+        staff: ManagedStaff
+    ): ManagedStaff {
+        val request = UpdateUserRequest(
+            email = staff.email.ifBlank { null },
+            fullName = staff.fullName.ifBlank { null },
+            phone = staff.phone.ifBlank { null },
+            role = staff.role
+        )
+
+        val response = try {
+            apiService.updateUser(bearerToken, staff.id, request)
+        } catch (e: Exception) {
+            throw IOException("Không thể cập nhật nhân viên: ${e.message}")
         }
 
-        if (index != -1) {
-            staffList[index] =
-                staffList[index].copy(isActive = isActive)
+        if (!response.isSuccessful) {
+            val msg = parseError(response.errorBody()?.string())
+            throw Exception(msg ?: "Lỗi cập nhật nhân viên (${response.code()})")
+        }
+
+        return response.body()?.toManagedStaff()
+            ?: throw Exception("Phản hồi không hợp lệ từ máy chủ")
+    }
+
+    /**
+     * Đặt trạng thái active/inactive cho nhân viên.
+     * PUT /api/auth/users/{id} với status = "ACTIVE" | "INACTIVE"
+     */
+    suspend fun setActive(
+        bearerToken: String,
+        staffId: Int,
+        isActive: Boolean
+    ): ManagedStaff {
+        val request = UpdateUserRequest(
+            status = if (isActive) "ACTIVE" else "INACTIVE"
+        )
+
+        val response = try {
+            apiService.updateUser(bearerToken, staffId, request)
+        } catch (e: Exception) {
+            throw IOException("Không thể cập nhật trạng thái: ${e.message}")
+        }
+
+        if (!response.isSuccessful) {
+            val msg = parseError(response.errorBody()?.string())
+            throw Exception(msg ?: "Lỗi cập nhật trạng thái (${response.code()})")
+        }
+
+        return response.body()?.toManagedStaff()
+            ?: throw Exception("Phản hồi không hợp lệ từ máy chủ")
+    }
+
+    // ─── Helper ───────────────────────────────────────────────────────────────
+
+    private fun parseError(body: String?): String? {
+        if (body.isNullOrBlank()) return null
+        return try {
+            val regex = """"(?:error|message)"\s*:\s*"([^"]+)"""".toRegex()
+            regex.find(body)?.groupValues?.get(1)
+        } catch (_: Exception) {
+            null
         }
     }
 }

@@ -2,6 +2,7 @@ package com.sis.backend.dto
 
 import kotlinx.serialization.Serializable
 
+// UC01: Đăng nhập
 @Serializable
 data class LoginRequest(
     val email: String,
@@ -10,55 +11,119 @@ data class LoginRequest(
 
 @Serializable
 data class LoginResponse(
-    val accessToken: String,
-    val tokenType: String = "Bearer",
-    val expiresIn: Long,
-    val user: AccountResponse
+    val user_id: Int,
+    val email: String,
+    val role: String,
+    val access_token: String,
+    val refresh_token: String,
+    val expires_in: Long
+)
+
+// UC02: Đăng xuất
+@Serializable
+data class LogoutRequest(
+    val refresh_token: String
+)
+
+// UC03: Quản lý người dùng (tạo/cập nhật)
+@Serializable
+data class CreateUserRequest(
+    val email: String,
+    val password: String,
+    val full_name: String,          // Họ tên (bắt buộc)
+    val phone: String,              // Số điện thoại (bắt buộc)
+    val role: String // "ADMIN" hoặc "WAREHOUSE_STAFF"
 )
 
 @Serializable
-data class AccountResponse(
-    val userId: Int,
-    val fullName: String,
+data class UpdateUserRequest(
+    val email: String? = null,
+    val full_name: String? = null,  // Họ tên
+    val phone: String? = null,      // Số điện thoại
+    val role: String? = null,
+    val status: String? = null // "ACTIVE" hoặc "INACTIVE"
+)
+
+@Serializable
+data class UserResponse(
+    val user_id: Int,
     val email: String,
-    val phone: String? = null,
+    val full_name: String?,  // Họ tên
+    val phone: String?,      // Số điện thoại
     val role: String,
     val status: String,
-    val mustChangePassword: Boolean = false
+    val last_login_at: String?,
+    val created_at: String?
+)
+
+// UC04: Kiểm soát truy cập (JWT validation)
+@Serializable
+data class TokenValidationResponse(
+    val valid: Boolean,
+    val user_id: Int?,
+    val email: String?,
+    val role: String?,
+    val message: String?
+)
+
+// UC05: Quản lý hồ sơ người dùng
+@Serializable
+data class UpdateProfileRequest(
+    val email: String? = null,
+    val full_name: String? = null,  // Họ tên
+    val phone: String? = null       // Số điện thoại
 )
 
 @Serializable
-data class ApiErrorResponse(
-    val success: Boolean = false,
-    val message: String
-)
-
-@Serializable
-data class CreateStaffRequest(
-    val fullName: String,
+data class ProfileResponse(
+    val user_id: Int,
     val email: String,
-    val phone: String? = null,
-    val password: String,
-    val role: String = "WAREHOUSE_STAFF"
+    val full_name: String?,  // Họ tên
+    val phone: String?,      // Số điện thoại
+    val role: String,
+    val status: String,
+    val last_login_at: String?,
+    val created_at: String?
 )
 
-@Serializable
-data class UpdateStatusRequest(
-    val status: String
-)
-
-@Serializable
-data class UpdateRoleRequest(
-    val role: String
-)
-
+// UC06: Thay đổi mật khẩu
 @Serializable
 data class ChangePasswordRequest(
-    val currentPassword: String,
-    val newPassword: String
+    val old_password: String,
+    val new_password: String
 )
 
 @Serializable
-data class LogoutResponse(
-    val message: String
+data class ChangePasswordResponse(
+    val message: String,
+    val success: Boolean
+)
+
+// UC07: Làm mới token
+@Serializable
+data class RefreshTokenRequest(
+    val refresh_token: String
+)
+
+@Serializable
+data class RefreshTokenResponse(
+    val access_token: String,
+    val refresh_token: String,
+    val expires_in: Long
+)
+
+// Danh sách staff (GET /api/auth/users)
+@Serializable
+data class StaffListResponse(
+    val total: Int,
+    val staff: List<UserResponse>
+)
+
+// Generic response wrapper
+@Serializable
+data class ApiResponse<T>(
+    val success: Boolean,
+    val data: T? = null,
+    val message: String? = null,
+    val error: String? = null
 )

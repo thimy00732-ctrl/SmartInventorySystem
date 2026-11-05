@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sis.android.data.remote.RetrofitClient
 import com.sis.android.data.repository.AuthRepository
 import com.sis.android.data.session.SessionManager
 import kotlinx.coroutines.CancellationException
@@ -46,7 +47,7 @@ fun LoginScreen(
     val context = LocalContext.current
 
     val repository = remember {
-        AuthRepository(SessionManager(context))
+        AuthRepository(SessionManager(context), RetrofitClient.apiService)
     }
 
     val scope = rememberCoroutineScope()
@@ -196,10 +197,10 @@ fun LoginScreen(
 
                     RoleTab(
                         text = "NHÂN VIÊN",
-                        selected = selectedRole == "STAFF",
+                        selected = selectedRole == "WAREHOUSE_STAFF",
                         modifier = Modifier.weight(1f)
                     ) {
-                        selectedRole = "STAFF"
+                        selectedRole = "WAREHOUSE_STAFF"
                         errorMessage = ""
                     }
                 }
@@ -333,7 +334,9 @@ fun LoginScreen(
 
                                 if (!checked) {
                                     // Bỏ ghi nhớ và xóa email đã lưu.
-                                    repository.logoutAndForgetEmail()
+                                    scope.launch {
+                                        repository.logoutAndForgetEmail()
+                                    }
                                     email = ""
                                 }
                             },

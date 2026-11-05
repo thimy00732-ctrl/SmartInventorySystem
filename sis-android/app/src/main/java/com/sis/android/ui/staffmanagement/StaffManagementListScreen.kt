@@ -19,17 +19,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sis.android.data.model.ManagedStaff
-
 @Composable
 fun StaffManagementListScreen(
     isAdmin: Boolean,
     onAddStaff: () -> Unit,
     onOpenStaff: (ManagedStaff) -> Unit,
-    viewModel: StaffManagementViewModel = viewModel()
+    viewModel: StaffManagementViewModel
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         containerColor = StaffManagementColors.Background,
@@ -108,6 +107,28 @@ fun StaffManagementListScreen(
                 )
             )
 
+            // Loading indicator
+            if (state.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = StaffManagementColors.Button)
+                }
+            }
+
+            // Error message
+            state.errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+                )
+            }
+
             // Danh sách nhân viên
             Card(
                 modifier = Modifier
@@ -143,7 +164,7 @@ fun StaffManagementListScreen(
                         }
                     }
 
-                    if (state.filteredStaff.isEmpty()) {
+                    if (state.filteredStaff.isEmpty() && !state.isLoading) {
                         Text(
                             text = "Không tìm thấy nhân viên",
                             modifier = Modifier
@@ -208,7 +229,7 @@ private fun StaffManagementItem(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = "${staff.email} · ${staff.branch}",
+                text = "${staff.email} · ${if (staff.phone.isNotBlank()) staff.phone else staff.role}",
                 color = StaffManagementColors.SecondaryText,
                 fontSize = 10.sp,
                 maxLines = 1

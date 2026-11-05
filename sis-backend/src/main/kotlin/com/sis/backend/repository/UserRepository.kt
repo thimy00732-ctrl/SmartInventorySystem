@@ -1,181 +1,353 @@
 package com.sis.backend.repository
 
-import com.sis.backend.dto.CreateStaffRequest
-import com.sis.backend.service.AuthUser
-import com.sis.backend.service.AuthUserRepository
-import java.sql.ResultSet
-import java.sql.Statement
+import com.sis.backend.entity.User
 import javax.sql.DataSource
+import java.time.LocalDateTime
+import java.sql.Timestamp
 
-class UserRepository(
-    private val dataSource: DataSource
-) : AuthUserRepository {
+/**
+ * UserRepository: Quản lý tất cả các thao tác database liên quan đến User
+ * - Lưu trữ, cập nhật, tìm kiếm người dùng
+ * - Sử dụng JDBC và HikariCP connection pool
+ */
+class UserRepository(private val dataSource: DataSource) {
 
-    private val columns = """
-        user_id, full_name, email, phone, password_hash,
-        role, status, must_change_password
-    """.trimIndent()
-
-    override fun findByEmail(email: String): AuthUser? {
-        val sql = """
-            SELECT $columns FROM users
-            WHERE LOWER(email) = LOWER(?)
-            LIMIT 1
+    /**
+     * UC03: Tìm người dùng theo email (dùng khi đăng nhập)
+     * @param email - email của người dùng
+     * @return User object nếu tìm thấy, null nếu không
+     */
+    fun findByEmail(email: String): User? {
+        val query = """
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
+                   last_login_at, created_at, updated_at, 
+                   must_change_password, temp_password_expires_at, password_changed_at
+            FROM users 
+            WHERE email = ?
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, email.trim())
-                statement.executeQuery().use { result ->
-                    if (result.next()) result.toAuthUser() else null
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, email)
+                statement.executeQuery().use { resultSet ->
+                    if (resultSet.next()) {
+                        mapResultSetToUser(resultSet)
+                    } else {
+                        null
+                    }
                 }
             }
         }
     }
 
-    override fun findById(userId: Int): AuthUser? {
-        val sql = """
-            SELECT $columns FROM users
+    /**
+     * UC03: Tìm người dùng theo user_id (dùng khi cập nhật hoặc xem chi tiết)
+     * @param userId - id của người dùng
+     * @return User object nếu tìm thấy, null nếu không
+     */
+    fun findById(userId: Int): User? {
+        val query = """
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
+                   last_login_at, created_at, updated_at,
+                   must_change_password, temp_password_expires_at, password_changed_at
+            FROM users 
             WHERE user_id = ?
-            LIMIT 1
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(sql).use { statement ->
+            connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, userId)
-                statement.executeQuery().use { result ->
-                    if (result.next()) result.toAuthUser() else null
+                statement.executeQuery().use { resultSet ->
+                    if (resultSet.next()) {
+                        mapResultSetToUser(resultSet)
+                    } else {
+                        null
+                    }
                 }
             }
         }
     }
 
-    override fun updateLastLogin(userId: Int) {
-        val sql = """
-            UPDATE users SET last_login_at = CURRENT_TIMESTAMP
+    /**
+     * UC01: Lưu người dùng mới vào database (tạo tài khoản)
+     * @param user - User object chứa thông tin người dùng
+     * @return User object với user_id được tạo tự động bởi database
+     */
+    fun save(user: User): User {
+        val query = """
+            INSERT INTO users (email, password_hash, full_name, phone, role, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(query, java.sql.Statement.RETURN_GENERATED_KEYS).use { statement ->
+                statement.setString(1, user.email)
+                statement.setString(2, user.password_hash)
+                statement.setString(3, user.full_name)
+                statement.setString(4, user.phone)
+                statement.setString(5, user.role)
+                statement.setString(6, user.status)
+                statement.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()))
+                statement.setTimestamp(8, Timestamp.valueOf(LocalDateTime.now()))
+
+                statement.executeUpdate()
+
+                // Lấy user_id được tạo tự động
+                statement.generatedKeys.use { keys ->
+                    if (keys.next()) {
+                        user.copy(user_id = keys.getInt(1), created_at = LocalDateTime.now())
+                    } else {
+                        throw RuntimeException("Không thể tạo người dùng mới")
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * UC01: Cập nhật last_login_at khi người dùng đăng nhập thành công
+     * @param userId - id của người dùng
+     */
+    fun updateLastLogin(userId: Int) {
+        val query = """
+            UPDATE users 
+            SET last_login_at = ? 
             WHERE user_id = ?
         """.trimIndent()
 
         dataSource.connection.use { connection ->
-            connection.prepareStatement(sql).use {
-                it.setInt(1, userId)
-                it.executeUpdate()
+            connection.prepareStatement(query).use { statement ->
+                statement.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()))
+                statement.setInt(2, userId)
+                statement.executeUpdate()
             }
         }
     }
 
-    fun listStaff(): List<AuthUser> {
-        val sql = """
-            SELECT $columns FROM users
-            WHERE role = 'WAREHOUSE_STAFF'
-            ORDER BY user_id DESC
-        """.trimIndent()
+    /**
+     * UC03: Cập nhật thông tin người dùng (email, full_name, phone, role, status)
+     * @param userId - id của người dùng
+     * @param email - email mới (có thể null nếu không cập nhật)
+     * @param fullName - họ tên mới (có thể null nếu không cập nhật)
+     * @param phone - số điện thoại mới (có thể null nếu không cập nhật)
+     * @param role - role mới (có thể null nếu không cập nhật)
+     * @param status - status mới (có thể null nếu không cập nhật)
+     * @return true nếu cập nhật thành công, false nếu không
+     */
+    fun update(userId: Int, email: String?, fullName: String?, phone: String?, role: String?, status: String?): Boolean {
+        // Xây dựng query động tùy thuộc vào những trường nào cần cập nhật
+        val updates = mutableListOf<String>()
+        val params = mutableListOf<Any>()
+
+        if (email != null) {
+            updates.add("email = ?")
+            params.add(email)
+        }
+        if (fullName != null) {
+            updates.add("full_name = ?")
+            params.add(fullName)
+        }
+        if (phone != null) {
+            updates.add("phone = ?")
+            params.add(phone)
+        }
+        if (role != null) {
+            updates.add("role = ?")
+            params.add(role)
+        }
+        if (status != null) {
+            updates.add("status = ?")
+            params.add(status)
+        }
+
+        if (updates.isEmpty()) {
+            return false // Không có gì để cập nhật
+        }
+
+        updates.add("updated_at = ?")
+        params.add(Timestamp.valueOf(LocalDateTime.now()))
+        params.add(userId)
+
+        val query = "UPDATE users SET ${updates.joinToString(", ")} WHERE user_id = ?"
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.executeQuery().use { result ->
-                    buildList {
-                        while (result.next()) add(result.toAuthUser())
+            connection.prepareStatement(query).use { statement ->
+                params.forEachIndexed { index, value ->
+                    when (value) {
+                        is String -> statement.setString(index + 1, value)
+                        is Timestamp -> statement.setTimestamp(index + 1, value)
+                        is Int -> statement.setInt(index + 1, value)
                     }
                 }
+                statement.executeUpdate() > 0
             }
         }
     }
 
-    fun createStaff(
-        request: CreateStaffRequest,
-        passwordHash: String
-    ): Int {
-        require(request.fullName.isNotBlank()) {
-            "Họ tên không được để trống"
-        }
-        require(request.email.isNotBlank()) {
-            "Email không được để trống"
-        }
-        require(request.role == "WAREHOUSE_STAFF") {
-            "Chỉ được tạo tài khoản nhân viên kho"
-        }
-
-        val sql = """
-            INSERT INTO users (
-                full_name, email, phone, password_hash, role, status,
-                must_change_password, password_changed_at
-            )
-            VALUES (?, ?, ?, ?, 'WAREHOUSE_STAFF', 'ACTIVE', TRUE, NULL)
+    /**
+     * UC06: Cập nhật mật khẩu mới khi người dùng thay đổi mật khẩu
+     * @param userId - id của người dùng
+     * @param newPasswordHash - hash của mật khẩu mới
+     * @return true nếu cập nhật thành công
+     */
+    fun updatePassword(userId: Int, newPasswordHash: String): Boolean {
+        val query = """
+            UPDATE users 
+            SET password_hash = ?, password_changed_at = ?, updated_at = ?
+            WHERE user_id = ?
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(
-                sql,
-                Statement.RETURN_GENERATED_KEYS
-            ).use { statement ->
-                statement.setString(1, request.fullName.trim())
-                statement.setString(2, request.email.trim().lowercase())
-                statement.setString(
-                    3,
-                    request.phone?.trim()?.takeIf { it.isNotEmpty() }
-                )
-                statement.setString(4, passwordHash)
-
-                check(statement.executeUpdate() == 1) {
-                    "Không thể tạo tài khoản nhân viên"
-                }
-
-                statement.generatedKeys.use { keys ->
-                    check(keys.next()) {
-                        "Không lấy được ID nhân viên"
-                    }
-                    keys.getInt(1)
-                }
+            connection.prepareStatement(query).use { statement ->
+                statement.setString(1, newPasswordHash)
+                statement.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()))
+                statement.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()))
+                statement.setInt(4, userId)
+                statement.executeUpdate() > 0
             }
         }
     }
 
-    fun updateStatus(userId: Int, status: String): Boolean {
-        require(status in setOf("ACTIVE", "INACTIVE")) {
-            "Trạng thái phải là ACTIVE hoặc INACTIVE"
-        }
-
-        val sql = """
-            UPDATE users SET status = ?
-            WHERE user_id = ? AND role = 'WAREHOUSE_STAFF'
+    /**
+     * UC03/UC02: Soft delete - vô hiệu hóa người dùng (không xóa khỏi database)
+     * Đặt status = 'INACTIVE' để bảo toàn dữ liệu kiểm toán
+     * @param userId - id của người dùng
+     * @return true nếu vô hiệu hóa thành công
+     */
+    fun deactivate(userId: Int): Boolean {
+        val query = """
+            UPDATE users 
+            SET status = 'INACTIVE', updated_at = ?
+            WHERE user_id = ?
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, status)
+            connection.prepareStatement(query).use { statement ->
+                statement.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()))
                 statement.setInt(2, userId)
                 statement.executeUpdate() > 0
             }
         }
     }
 
-    fun updateRole(userId: Int, role: String): Boolean {
-        require(role in setOf("ADMIN", "WAREHOUSE_STAFF")) {
-            "Role không hợp lệ"
-        }
-
-        val sql = """
-            UPDATE users SET role = ? WHERE user_id = ?
+    /**
+     * UC03: Kích hoạt lại người dùng (đặt status = 'ACTIVE')
+     * @param userId - id của người dùng
+     * @return true nếu kích hoạt thành công
+     */
+    fun activate(userId: Int): Boolean {
+        val query = """
+            UPDATE users 
+            SET status = 'ACTIVE', updated_at = ?
+            WHERE user_id = ?
         """.trimIndent()
 
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.setString(1, role)
+            connection.prepareStatement(query).use { statement ->
+                statement.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()))
                 statement.setInt(2, userId)
                 statement.executeUpdate() > 0
             }
         }
     }
 
-    private fun ResultSet.toAuthUser() = AuthUser(
-        userId = getInt("user_id"),
-        fullName = getString("full_name"),
-        email = getString("email"),
-        phone = getString("phone"),
-        passwordHash = getString("password_hash"),
-        role = getString("role"),
-        status = getString("status"),
-        mustChangePassword = getBoolean("must_change_password")
-    )
+    /**
+     * Lấy tất cả người dùng (dùng cho danh sách quản lý)
+     * @return List<User> của tất cả người dùng
+     */
+    fun findAll(): List<User> {
+        val query = """
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
+                   last_login_at, created_at, updated_at,
+                   must_change_password, temp_password_expires_at, password_changed_at
+            FROM users 
+            ORDER BY created_at DESC
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(query).use { resultSet ->
+                    val users = mutableListOf<User>()
+                    while (resultSet.next()) {
+                        users.add(mapResultSetToUser(resultSet))
+                    }
+                    users
+                }
+            }
+        }
+    }
+
+    /**
+     * UC08/UC09 (NEW): Lấy danh sách người dùng với phân trang
+     * @param limit - số lượng người dùng mỗi trang
+     * @param offset - vị trí bắt đầu
+     * @return List<User> của người dùng theo limit và offset
+     */
+    fun findAll(limit: Int, offset: Int): List<User> {
+        val query = """
+            SELECT user_id, email, password_hash, full_name, phone, role, status, 
+                   last_login_at, created_at, updated_at,
+                   must_change_password, temp_password_expires_at, password_changed_at
+            FROM users 
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(query).use { statement ->
+                statement.setInt(1, limit)
+                statement.setInt(2, offset)
+                statement.executeQuery().use { resultSet ->
+                    val users = mutableListOf<User>()
+                    while (resultSet.next()) {
+                        users.add(mapResultSetToUser(resultSet))
+                    }
+                    users
+                }
+            }
+        }
+    }
+
+    /**
+     * UC08/UC09 (NEW): Lấy tổng số người dùng trong database
+     * @return Int - tổng số người dùng
+     */
+    fun countAll(): Int {
+        val query = "SELECT COUNT(*) as total FROM users"
+
+        return dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(query).use { resultSet ->
+                    if (resultSet.next()) {
+                        resultSet.getInt("total")
+                    } else {
+                        0
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper function: Chuyển đổi ResultSet thành User object
+     * @param resultSet - kết quả truy vấn từ database
+     * @return User object
+     */
+    private fun mapResultSetToUser(resultSet: java.sql.ResultSet): User {
+        return User(
+            user_id = resultSet.getInt("user_id"),
+            email = resultSet.getString("email"),
+            password_hash = resultSet.getString("password_hash"),
+            full_name = resultSet.getString("full_name"),
+            phone = resultSet.getString("phone"),
+            role = resultSet.getString("role"),
+            status = resultSet.getString("status"),
+            last_login_at = resultSet.getTimestamp("last_login_at")?.toLocalDateTime(),
+            created_at = resultSet.getTimestamp("created_at")?.toLocalDateTime(),
+            updated_at = resultSet.getTimestamp("updated_at")?.toLocalDateTime(),
+            must_change_password = resultSet.getBoolean("must_change_password"),
+            temp_password_expires_at = resultSet.getTimestamp("temp_password_expires_at")?.toLocalDateTime(),
+            password_changed_at = resultSet.getTimestamp("password_changed_at")?.toLocalDateTime()
+        )
+    }
 }
