@@ -87,8 +87,15 @@ class ProductViewModel(
         val totalStock = allProductsCache.sumOf { it.stockQuantity }
         val totalReserved = allProductsCache.sumOf { it.reservedQuantity }
         val totalAvailable = allProductsCache.sumOf { it.availableQuantity }
+        // Đếm số lượng tồn thấp thực tế
         val lowStockCount = allProductsCache.count { it.availableQuantity <= it.minStock }
-        val nearExpiryCount = 5
+
+        // 🛠️ Đếm số lượng cận hạn thực tế từ cache (Thay thế số 5 cứng bằng logic thực tế của bạn)
+        val nearExpiryCount = allProductsCache.count { product ->
+            // Ví dụ: Kiểm tra nếu sản phẩm thuộc diện cận hạn (nếu có trường hạn sử dụng)
+            // product.isNearExpiry == true
+            false // Tạm thời trả về 0 nếu chưa có dữ liệu cận hạn, số hiển thị sẽ tự động cập nhật về (0)
+        }
 
         _uiState.value = ProductUiState.Success(
             products = filtered,
