@@ -45,7 +45,10 @@ class ProductViewModel(
         viewModelScope.launch {
             _uiState.value = ProductUiState.Loading
             try {
-                val list = repository.getProducts(keyword = _searchQuery.value.ifEmpty { null })
+                // Gửi từ khóa tìm kiếm lên API backend
+                val keywordParam = _searchQuery.value.trim().takeIf { it.isNotEmpty() }
+                val list = repository.getProducts(keyword = keywordParam)
+
                 allProductsCache = list
                 updateFilteredState()
             } catch (e: Exception) {
@@ -56,7 +59,8 @@ class ProductViewModel(
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
-        updateFilteredState()
+        // 🔄 Gọi lại hàm tải dữ liệu từ server với từ khóa mới
+        loadProducts()
     }
 
     fun setSelectedTab(tab: String) {
