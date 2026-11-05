@@ -6,6 +6,9 @@ import com.sis.android.data.remote.ApiService
 import com.sis.android.data.remote.CreateUserRequest
 import com.sis.android.data.remote.UpdateUserRequest
 import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /**
  * Repository quản lý nhân viên — gọi API backend thực.
@@ -23,12 +26,11 @@ class StaffManagementRepository(
         val response = try {
             apiService.getUsers(bearerToken, limit = 100, offset = 0)
         } catch (e: Exception) {
-            throw IOException("Không thể tải danh sách nhân viên: ${e.message}")
+            throw handleNetworkException(e, "Không thể tải danh sách nhân viên")
         }
 
         if (!response.isSuccessful) {
-            val msg = parseError(response.errorBody()?.string())
-            throw Exception(msg ?: "Lỗi tải danh sách nhân viên (${response.code()})")
+            throw handleHttpError(response.code(), response.errorBody()?.string())
         }
 
         return response.body()?.staff?.map { it.toManagedStaff() } ?: emptyList()
@@ -58,12 +60,11 @@ class StaffManagementRepository(
         val response = try {
             apiService.createUser(bearerToken, request)
         } catch (e: Exception) {
-            throw IOException("Không thể tạo nhân viên: ${e.message}")
+            throw handleNetworkException(e, "Không thể tạo nhân viên")
         }
 
         if (!response.isSuccessful) {
-            val msg = parseError(response.errorBody()?.string())
-            throw Exception(msg ?: "Lỗi tạo nhân viên (${response.code()})")
+            throw handleHttpError(response.code(), response.errorBody()?.string())
         }
 
         return response.body()?.toManagedStaff()
@@ -88,12 +89,11 @@ class StaffManagementRepository(
         val response = try {
             apiService.updateUser(bearerToken, staff.id, request)
         } catch (e: Exception) {
-            throw IOException("Không thể cập nhật nhân viên: ${e.message}")
+            throw handleNetworkException(e, "Không thể cập nhật nhân viên")
         }
 
         if (!response.isSuccessful) {
-            val msg = parseError(response.errorBody()?.string())
-            throw Exception(msg ?: "Lỗi cập nhật nhân viên (${response.code()})")
+            throw handleHttpError(response.code(), response.errorBody()?.string())
         }
 
         return response.body()?.toManagedStaff()
@@ -116,12 +116,11 @@ class StaffManagementRepository(
         val response = try {
             apiService.updateUser(bearerToken, staffId, request)
         } catch (e: Exception) {
-            throw IOException("Không thể cập nhật trạng thái: ${e.message}")
+            throw handleNetworkException(e, "Không thể cập nhật trạng thái")
         }
 
         if (!response.isSuccessful) {
-            val msg = parseError(response.errorBody()?.string())
-            throw Exception(msg ?: "Lỗi cập nhật trạng thái (${response.code()})")
+            throw handleHttpError(response.code(), response.errorBody()?.string())
         }
 
         return response.body()?.toManagedStaff()
@@ -129,6 +128,28 @@ class StaffManagementRepository(
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────
+
+    private fun handleHttpError(code: Int, errorBody: String?): Exception {
+        val parsed = parseError(errorBody)
+        if (!parsed.isNullOrBlank()) return Exception(parsed)
+
+        return when (code) {
+            401 -> Exception("401 Unauthorized: Phiên làm việc hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.")
+            403 -> Exception("403 Forbidden: Bạn không có quyền thực hiện thao tác này (Cần quyền Admin).")
+            404 -> Exception("404 Not Found: Không tìm thấy dữ liệu yêu cầu.")
+            500, 502, 503 -> Exception("500 Server Error: Lỗi máy chủ nội bộ. Vui lòng thử lại sau.")
+            else -> Exception("Lỗi kết nối ($code). Vui lòng thử lại.")
+        }
+    }
+
+    private fun handleNetworkException(e: Exception, actionMessage: String): IOException {
+        return when (e) {
+            is SocketTimeoutException -> IOException("Lỗi kết nối quá thời gian chờ (Timeout). Vui lòng kiểm tra lại mạng.")
+            is UnknownHostException, is ConnectException -> IOException("Lỗi mất kết nối mạng: Không thể kết nối tới máy chủ.")
+            is IOException -> e
+            else -> IOException("$actionMessage: ${e.message}")
+        }
+    }
 
     private fun parseError(body: String?): String? {
         if (body.isNullOrBlank()) return null

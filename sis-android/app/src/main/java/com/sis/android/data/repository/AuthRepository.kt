@@ -27,13 +27,20 @@ class AuthRepository(
         val response = try {
             apiService.login(LoginRequest(normalizedEmail, password))
         } catch (e: Exception) {
-            throw IOException("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.")
+            throw when (e) {
+                is java.net.SocketTimeoutException -> IOException("Lỗi kết nối quá thời gian chờ (Timeout). Vui lòng thử lại.")
+                is java.net.UnknownHostException, is java.net.ConnectException -> IOException("Lỗi mất kết nối mạng: Không thể kết nối tới máy chủ.")
+                else -> IOException("Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng.")
+            }
         }
 
         if (!response.isSuccessful) {
-            val errorMsg = response.errorBody()?.string()
-                ?.let { parseErrorMessage(it) }
-                ?: "Email hoặc mật khẩu không đúng."
+            val errorMsg = parseErrorMessage(response.errorBody()?.string())
+                ?: when (response.code()) {
+                    401 -> "401 Unauthorized: Mật khẩu không chính xác hoặc tài khoản đã bị khóa."
+                    403 -> "403 Forbidden: Tài khoản của bạn bị từ chối truy cập."
+                    else -> "Lỗi đăng nhập (${response.code()}). Vui lòng thử lại."
+                }
             throw IllegalArgumentException(errorMsg)
         }
 
@@ -109,7 +116,8 @@ class AuthRepository(
     // ─── Helper ───────────────────────────────────────────────────────────────
 
     /** Trích xuất message lỗi từ JSON response body */
-    private fun parseErrorMessage(body: String): String? {
+    private fun parseErrorMessage(body: String?): String? {
+        if (body.isNullOrBlank()) return null
         return try {
             // Backend trả về {"error": "..."} hoặc {"message": "..."}
             val regex = """"(?:error|message)"\s*:\s*"([^"]+)"""".toRegex()
