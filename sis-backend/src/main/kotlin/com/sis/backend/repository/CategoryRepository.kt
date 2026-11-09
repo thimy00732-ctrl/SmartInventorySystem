@@ -308,4 +308,38 @@ class CategoryRepository(
             }
         }
     }
-}
+
+    /**
+     * Lấy danh sách category options cho dropdown (chỉ active categories).
+     *
+     * @return Danh sách CategoryOption gồm id, name, description.
+     */
+    fun findAllActiveForDropdown(): List<com.sis.backend.dto.CategoryOption> {
+            val sql = """
+            SELECT category_id, category_name, description
+            FROM categories
+            WHERE is_active = TRUE
+            ORDER BY category_name ASC
+        """.trimIndent()
+
+            return dataSource.connection.use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.executeQuery().use { result ->
+                        buildList {
+                            while (result.next()) {
+                                add(
+                                    com.sis.backend.dto.CategoryOption(
+                                        categoryId = result.getLong("category_id"),
+                                        categoryName = result.getString("category_name"),
+                                        description = result.getString("description")
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+

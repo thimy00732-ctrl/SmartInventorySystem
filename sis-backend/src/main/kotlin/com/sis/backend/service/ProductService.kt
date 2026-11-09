@@ -19,8 +19,8 @@ import com.sis.backend.repository.SupplierRepository
 import java.math.BigDecimal
 import java.security.SecureRandom
 import java.time.LocalDateTime
+import com.sis.backend.dto.ProductSearchFilter
 import com.sis.backend.dto.product.ProductPageResponse
-import com.sis.backend.repository.ProductSearchFilter
 
 
 /**

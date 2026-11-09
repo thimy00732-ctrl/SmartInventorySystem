@@ -1,8 +1,8 @@
 package com.sis.backend.controller
 
+import com.sis.backend.dto.ProductSearchFilter
 import com.sis.backend.dto.product.CreateProductRequest
 import com.sis.backend.dto.product.UpdateProductRequest
-import com.sis.backend.repository.ProductSearchFilter
 import com.sis.backend.service.ProductService
 
 /**UPDATE

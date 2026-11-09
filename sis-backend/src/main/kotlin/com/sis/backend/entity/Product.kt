@@ -31,6 +31,7 @@ data class Product(
     val categoryId: Long?,
     val categoryName: String? = null,
     val supplierId: Long?,
+    val supplierName: String? = null,
     val unit: String,
     val costPrice: BigDecimal,
     val salePrice: BigDecimal,

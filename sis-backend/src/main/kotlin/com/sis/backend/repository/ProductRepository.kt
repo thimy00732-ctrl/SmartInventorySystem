@@ -1,54 +1,15 @@
 package com.sis.backend.repository
 
-
+import com.sis.backend.dto.PageResult
+import com.sis.backend.dto.ProductSearchFilter
 import com.sis.backend.dto.product.ProductInventoryResponse
 import com.sis.backend.entity.Product
 import com.sis.backend.mapper.ProductInventoryMapper
-import java.math.BigDecimal
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.Statement
+import java.math.BigDecimal
 import javax.sql.DataSource
-
-/**
- * Điều kiện tìm kiếm và lọc sản phẩm.
- *
- * @property keyword Từ khóa tìm kiếm theo SKU, barcode hoặc tên sản phẩm.
- * @property categoryId Mã danh mục cần lọc.
- * @property supplierId Mã nhà cung cấp cần lọc.
- * @property isActive Trạng thái hoạt động; null là lấy cả hai trạng thái.
- * @property minPrice Giá bán thấp nhất.
- * @property maxPrice Giá bán cao nhất.
- * @property sortBy Cột dùng để sắp xếp.
- * @property sortDirection Chiều sắp xếp ASC hoặc DESC.
- */
-data class ProductSearchFilter(
-    val keyword: String? = null,
-    val categoryId: Long? = null,
-    val supplierId: Long? = null,
-    val isActive: Boolean? = true,
-    val minPrice: BigDecimal? = null,
-    val maxPrice: BigDecimal? = null,
-    val sortBy: String = "created_at",
-    val sortDirection: String = "DESC"
-)
-
-/**
- * Kết quả danh sách sản phẩm có phân trang.
- *
- * @property items Danh sách sản phẩm của trang hiện tại.
- * @property page Trang hiện tại, bắt đầu từ 1.
- * @property size Số sản phẩm tối đa trên một trang.
- * @property totalItems Tổng số sản phẩm thỏa mãn điều kiện.
- * @property totalPages Tổng số trang.
- */
-data class ProductPageResult(
-    val items: List<Product>,
-    val page: Int,
-    val size: Int,
-    val totalItems: Long,
-    val totalPages: Int
-)
 
 /**
  * Repository xử lý truy vấn và thao tác dữ liệu sản phẩm.
@@ -74,7 +35,7 @@ class ProductRepository(
             append(
                 """
         SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
-               p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+               p.category_id, c.category_name, p.supplier_id, s.supplier_name, p.unit, p.cost_price, p.sale_price,
                p.min_stock, p.max_stock,
                COALESCE((SELECT SUM(i.stock_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS stock_quantity,
                COALESCE((SELECT SUM(i.reserved_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS reserved_quantity,
@@ -82,6 +43,7 @@ class ProductRepository(
                p.is_active, p.created_at, p.updated_at
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.category_id
+        LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
         WHERE 1 = 1
         """.trimIndent()
             )
@@ -139,7 +101,7 @@ class ProductRepository(
         filter: ProductSearchFilter = ProductSearchFilter(),
         page: Int = 1,
         size: Int = 10
-    ): ProductPageResult {
+    ): PageResult<Product> {
 
         require(page >= 1) {
             "Số trang phải lớn hơn hoặc bằng 1."
@@ -185,6 +147,16 @@ class ProductRepository(
         filter.supplierId?.let {
             conditions.add("supplier_id = ?")
             parameters.add(it)
+        }
+
+        filter.categoryName?.trim()?.takeIf { it.isNotBlank() }?.let {
+            conditions.add("c.category_name LIKE ?")
+            parameters.add("%$it%")
+        }
+
+        filter.supplierName?.trim()?.takeIf { it.isNotBlank() }?.let {
+            conditions.add("s.supplier_name LIKE ?")
+            parameters.add("%$it%")
         }
 
         filter.isActive?.let {
@@ -250,6 +222,7 @@ class ProductRepository(
         p.category_id,
         c.category_name,
         p.supplier_id,
+        s.supplier_name,
         p.unit,
         p.cost_price,
         p.sale_price,
@@ -263,6 +236,7 @@ class ProductRepository(
         COALESCE((SELECT SUM(i.available_quantity) FROM inventory i WHERE i.product_id = p.product_id), 0) AS available_quantity
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.category_id
+    LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
     $whereClause
     ORDER BY $sortColumn $sortDirection, p.product_id DESC
     LIMIT ? OFFSET ?
@@ -307,7 +281,7 @@ class ProductRepository(
                 ((totalItems - 1) / size + 1).toInt()
             }
 
-            ProductPageResult(
+            PageResult(
                 items = products,
                 page = page,
                 size = size,
@@ -326,10 +300,11 @@ class ProductRepository(
     fun findById(productId: Long): Product? {
         val sql = """
             SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
-                   p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+                   p.category_id, c.category_name, p.supplier_id, s.supplier_name, p.unit, p.cost_price, p.sale_price,
                    p.min_stock, p.max_stock, p.is_active, p.created_at, p.updated_at
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             WHERE p.product_id = ?
         """.trimIndent()
 
@@ -354,10 +329,11 @@ class ProductRepository(
         return findOne(
             """
             SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
-                   p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+                   p.category_id, c.category_name, p.supplier_id, s.supplier_name, p.unit, p.cost_price, p.sale_price,
                    p.min_stock, p.max_stock, p.is_active, p.created_at, p.updated_at
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             WHERE p.sku = ?
             """.trimIndent(),
             sku
@@ -374,10 +350,11 @@ class ProductRepository(
         return findOne(
             """
             SELECT p.product_id, p.sku, p.barcode, p.product_name, p.image_url,
-                   p.category_id, c.category_name, p.supplier_id, p.unit, p.cost_price, p.sale_price,
+                   p.category_id, c.category_name, p.supplier_id, s.supplier_name, p.unit, p.cost_price, p.sale_price,
                    p.min_stock, p.max_stock, p.is_active, p.created_at, p.updated_at
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             WHERE p.barcode = ?
             """.trimIndent(),
             barcode
@@ -757,6 +734,7 @@ class ProductRepository(
             categoryName = resultSet.getString("category_name"),
             supplierId = resultSet.getLong("supplier_id")
                 .let { if (resultSet.wasNull()) null else it },
+            supplierName = resultSet.getString("supplier_name"),
             unit = resultSet.getString("unit"),
             costPrice = resultSet.getBigDecimal("cost_price")
                 ?: BigDecimal.ZERO,

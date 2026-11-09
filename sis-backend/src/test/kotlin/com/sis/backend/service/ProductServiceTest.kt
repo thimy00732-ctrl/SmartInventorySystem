@@ -1,6 +1,8 @@
 
 package com.sis.backend.service
 
+import com.sis.backend.dto.PageResult
+import com.sis.backend.dto.ProductSearchFilter
 import com.sis.backend.dto.product.CreateProductRequest
 import com.sis.backend.dto.product.UpdateProductRequest
 import com.sis.backend.entity.Product
@@ -11,9 +13,7 @@ import com.sis.backend.exception.InvalidProductException
 import com.sis.backend.exception.InvalidProductSupplierException
 import com.sis.backend.exception.ProductNotFoundException
 import com.sis.backend.repository.CategoryRepository
-import com.sis.backend.repository.ProductPageResult
 import com.sis.backend.repository.ProductRepository
-import com.sis.backend.repository.ProductSearchFilter
 import com.sis.backend.repository.SupplierRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -169,7 +169,7 @@ class ProductServiceTest {
     fun `getProductsPage should return paginated products`() {
         val products = listOf(createSampleProduct())
 
-        val pageResult = ProductPageResult(
+        val pageResult = PageResult(
             items = products,
             page = 1,
             size = 10,

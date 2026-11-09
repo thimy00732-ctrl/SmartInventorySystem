@@ -25,6 +25,10 @@ import com.sis.backend.service.SupplierService
 import com.sis.backend.controller.SupplierController
 import com.sis.backend.routes.supplierRoutes
 import com.sis.backend.repository.InventoryRepository
+import com.sis.backend.repository.WarehouseRepository
+import com.sis.backend.service.InventoryService
+import com.sis.backend.controller.InventoryController
+import com.sis.backend.routes.inventoryRoutes
 
 /*UPDATE
 *import com.sis.backend.repository.InventoryRepository
@@ -106,14 +110,15 @@ fun Application.module() {
 
         // CRUD sản phẩm - Task 10
         productRoutes(
-            ProductController(
+            productController = ProductController(
                 ProductService(
                     ProductRepository(dataSource),
                     CategoryRepository(dataSource),
-                    SupplierRepository(dataSource),
-
+                    SupplierRepository(dataSource)
                 )
-            )
+            ),
+            categoryRepository = CategoryRepository(dataSource),
+            supplierRepository = SupplierRepository(dataSource)
         )
 
         //CRUD supplier
@@ -124,6 +129,19 @@ fun Application.module() {
                     SupplierRepository(dataSource)
                 )
             )
+        )
+
+        // CRUD inventory
+
+        inventoryRoutes(
+            inventoryController = InventoryController(
+                InventoryService(
+                    InventoryRepository(dataSource)
+                )
+            ),
+            warehouseRepository = WarehouseRepository(dataSource),
+            categoryRepository = CategoryRepository(dataSource),
+            supplierRepository = SupplierRepository(dataSource)
         )
     }
 }

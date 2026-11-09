@@ -551,4 +551,45 @@ class SupplierRepository(
             }
         }
     }
+
+    /**
+     * Lấy danh sách supplier options cho dropdown (chỉ active suppliers).
+     *
+     * @return Danh sách SupplierOption gồm id, name, phone, email.
+     */
+    fun findAllActiveForDropdown(): List<com.sis.backend.dto.SupplierOption> {
+        val sql = """
+            SELECT supplier_id, supplier_name, phone, email
+            FROM suppliers
+            WHERE is_active = TRUE
+            ORDER BY supplier_name ASC
+        """.trimIndent()
+
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.executeQuery().use { resultSet ->
+                    return resultSet.toSupplierOptionList()
+                }
+            }
+        }
+    }
+
+    /**
+     * Chuyển ResultSet thành danh sách SupplierOption.
+     */
+    private fun ResultSet.toSupplierOptionList(): List<com.sis.backend.dto.SupplierOption> {
+        return buildList {
+            while (next()) {
+                add(
+                    com.sis.backend.dto.SupplierOption(
+                        supplierId = getLong("supplier_id"),
+                        supplierName = getString("supplier_name"),
+                        phone = getString("phone"),
+                        email = getString("email")
+                    )
+                )
+            }
+        }
+    }
 }
+

@@ -1,9 +1,11 @@
 package com.sis.backend.routes
 
 import com.sis.backend.controller.ProductController
+import com.sis.backend.dto.*
 import com.sis.backend.dto.product.CreateProductRequest
 import com.sis.backend.dto.product.UpdateProductRequest
-import com.sis.backend.repository.ProductSearchFilter
+import com.sis.backend.repository.CategoryRepository
+import com.sis.backend.repository.SupplierRepository
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -14,19 +16,18 @@ import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.route
-import java.math.BigDecimal
-
-/**UPDATE
- * Xóa sản phẩm theo ID.
- */
 
 /**
  * Khai báo các API quản lý sản phẩm.
  *
  * @param productController Controller xử lý yêu cầu sản phẩm.
+ * @param categoryRepository Repository danh mục (cho dropdown).
+ * @param supplierRepository Repository nhà cung cấp (cho dropdown).
  */
 fun Route.productRoutes(
-    productController: ProductController
+    productController: ProductController,
+    categoryRepository: CategoryRepository? = null,
+    supplierRepository: SupplierRepository? = null
 ) {
     route("/api/products") {
 
@@ -34,9 +35,8 @@ fun Route.productRoutes(
          * Lấy danh sách sản phẩm có tìm kiếm, lọc và phân trang.
          *
          * Các tham số:
-         * keyword, categoryId, supplierId, isActive,
-         * minPrice, maxPrice, sortBy, sortDirection,
-         * page, size.
+         * keyword, categoryId, categoryName, supplierId, supplierName, isActive,
+         * minPrice, maxPrice, sortBy, sortDirection, page, size.
          */
         get {
             val query = call.request.queryParameters
@@ -45,38 +45,28 @@ fun Route.productRoutes(
             val size = query["size"]?.toIntOrNull() ?: 10
 
             val filter = ProductSearchFilter(
-                keyword = query["keyword"]?.takeIf {
-                    it.isNotBlank()
-                },
+                keyword = query["keyword"]?.takeIf { it.isNotBlank() },
                 categoryId = query["categoryId"]?.let {
                     it.toLongOrNull()
-                        ?: throw IllegalArgumentException(
-                            "Mã danh mục không hợp lệ."
-                        )
+                        ?: throw IllegalArgumentException("Mã danh mục không hợp lệ.")
                 },
+                categoryName = query["categoryName"]?.takeIf { it.isNotBlank() },
                 supplierId = query["supplierId"]?.let {
                     it.toLongOrNull()
-                        ?: throw IllegalArgumentException(
-                            "Mã nhà cung cấp không hợp lệ."
-                        )
+                        ?: throw IllegalArgumentException("Mã nhà cung cấp không hợp lệ.")
                 },
+                supplierName = query["supplierName"]?.takeIf { it.isNotBlank() },
                 isActive = query["isActive"]?.let {
                     it.toBooleanStrictOrNull()
-                        ?: throw IllegalArgumentException(
-                            "Trạng thái hoạt động không hợp lệ."
-                        )
+                        ?: throw IllegalArgumentException("Trạng thái hoạt động không hợp lệ.")
                 },
                 minPrice = query["minPrice"]?.let {
                     it.toBigDecimalOrNull()
-                        ?: throw IllegalArgumentException(
-                            "Giá bán tối thiểu không hợp lệ."
-                        )
+                        ?: throw IllegalArgumentException("Giá bán tối thiểu không hợp lệ.")
                 },
                 maxPrice = query["maxPrice"]?.let {
                     it.toBigDecimalOrNull()
-                        ?: throw IllegalArgumentException(
-                            "Giá bán tối đa không hợp lệ."
-                        )
+                        ?: throw IllegalArgumentException("Giá bán tối đa không hợp lệ.")
                 },
                 sortBy = query["sortBy"] ?: "created_at",
                 sortDirection = query["sortDirection"] ?: "DESC"
@@ -92,6 +82,36 @@ fun Route.productRoutes(
         }
 
         /**
+         * Lấy tất cả dropdown options cho product filter.
+         *
+         * Response gồm:
+         * - categories: Danh sách danh mục
+         * - suppliers: Danh sách nhà cung cấp
+         * - sortByOptions: Các cột sắp xếp
+         * - sortDirectionOptions: Chiều sắp xếp
+         */
+        get("/filter-options") {
+            try {
+                val categories = categoryRepository?.findAllActiveForDropdown() ?: emptyList()
+                val suppliers = supplierRepository?.findAllActiveForDropdown() ?: emptyList()
+
+                val response = ProductFilterOptions(
+                    categories = categories,
+                    suppliers = suppliers,
+                    sortByOptions = ProductSortOption.all(),
+                    sortDirectionOptions = SortDirectionOption.all()
+                )
+
+                call.respond(HttpStatusCode.OK, response)
+            } catch (exception: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    mapOf("error" to "Lỗi khi lấy filter options: ${exception.message}")
+                )
+            }
+        }
+
+        /**
          * Lấy danh sách sản phẩm theo API cũ.
          *
          * Sử dụng khi cần lấy toàn bộ danh sách mà không phân trang.
@@ -99,9 +119,8 @@ fun Route.productRoutes(
         get("/all") {
             val keyword = call.request.queryParameters["keyword"]
 
-            val includeInactive = call.request.queryParameters[
-                "includeInactive"
-            ]?.toBooleanStrictOrNull() ?: false
+            val includeInactive = call.request.queryParameters["includeInactive"]
+                ?.toBooleanStrictOrNull() ?: false
 
             val products = productController.getAllProducts(
                 keyword = keyword,
@@ -116,9 +135,7 @@ fun Route.productRoutes(
          */
         get("/lookup/{code}") {
             val code = call.parameters["code"]
-                ?: throw IllegalArgumentException(
-                    "Thiếu mã sản phẩm."
-                )
+                ?: throw IllegalArgumentException("Thiếu mã sản phẩm.")
 
             val product = productController.lookupProduct(code)
 
@@ -130,9 +147,7 @@ fun Route.productRoutes(
          */
         get("/{id}") {
             val productId = call.parameters["id"]?.toLongOrNull()
-                ?: throw IllegalArgumentException(
-                    "Mã sản phẩm không hợp lệ."
-                )
+                ?: throw IllegalArgumentException("Mã sản phẩm không hợp lệ.")
 
             val product = productController.getProductDetail(productId)
 
@@ -154,16 +169,11 @@ fun Route.productRoutes(
          */
         put("/{id}") {
             val productId = call.parameters["id"]?.toLongOrNull()
-                ?: throw IllegalArgumentException(
-                    "Mã sản phẩm không hợp lệ."
-                )
+                ?: throw IllegalArgumentException("Mã sản phẩm không hợp lệ.")
 
             val request = call.receive<UpdateProductRequest>()
 
-            val product = productController.updateProduct(
-                productId,
-                request
-            )
+            val product = productController.updateProduct(productId, request)
 
             call.respond(HttpStatusCode.OK, product)
         }
@@ -173,17 +183,13 @@ fun Route.productRoutes(
          */
         patch("/{id}/deactivate") {
             val productId = call.parameters["id"]?.toLongOrNull()
-                ?: throw IllegalArgumentException(
-                    "Mã sản phẩm không hợp lệ."
-                )
+                ?: throw IllegalArgumentException("Mã sản phẩm không hợp lệ.")
 
             productController.deactivateProduct(productId)
 
             call.respond(
                 HttpStatusCode.OK,
-                mapOf(
-                    "message" to "Ngừng kinh doanh sản phẩm thành công."
-                )
+                mapOf("message" to "Ngừng kinh doanh sản phẩm thành công.")
             )
         }
 
@@ -192,19 +198,16 @@ fun Route.productRoutes(
          */
         patch("/{id}/reactivate") {
             val productId = call.parameters["id"]?.toLongOrNull()
-                ?: throw IllegalArgumentException(
-                    "Mã sản phẩm không hợp lệ."
-                )
+                ?: throw IllegalArgumentException("Mã sản phẩm không hợp lệ.")
 
             productController.reactivateProduct(productId)
 
             call.respond(
                 HttpStatusCode.OK,
-                mapOf(
-                    "message" to "Kích hoạt lại sản phẩm thành công."
-                )
+                mapOf("message" to "Kích hoạt lại sản phẩm thành công.")
             )
         }
+
         /**
          * Xóa sản phẩm theo ID.
          */
