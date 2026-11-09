@@ -52,7 +52,7 @@ fun ProductStatItem(label: String, value: String) {
 /** Dòng hiển thị thông tin 1 sản phẩm trong danh sách */
 @Composable
 fun ProductRowItem(product: Product, onClick: () -> Unit) {
-    val low = product.availableQuantity <= product.minStock
+    val low = product.availableQuantity > 0 && product.availableQuantity <= product.minStock
     val initials = product.productName
         .split(" ")
         .take(2)
@@ -85,7 +85,8 @@ fun ProductRowItem(product: Product, onClick: () -> Unit) {
                 color = CrudColors.TextPrimary
             )
             Text(
-                "${product.sku} · ${product.warehouseName ?: "Kho chính"}",
+                "${product.sku} · ${product.categoryName}",
+
                 fontSize = 11.sp,
                 color = CrudColors.TextSecondary
             )

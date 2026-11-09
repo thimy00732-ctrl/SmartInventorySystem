@@ -24,7 +24,7 @@ data class Product(
     val reservedQuantity: Int = 0,
 
     val description: String? = null,
-    val warehouseName: String = "Kho Trung tâm",
+    //val warehouseName: String = "Kho Trung tâm",
     val categoryName: String = "Chưa phân loại"
 ) {
     // 🚀 Tự động tính toán số lượng khả dụng = Tồn kho - Giữ chỗ (đảm bảo không bị âm)

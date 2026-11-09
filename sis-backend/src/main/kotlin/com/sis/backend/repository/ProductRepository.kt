@@ -126,9 +126,9 @@ class ProductRepository(
             conditions.add(
                 """
                 (
-                    sku LIKE ?
-                    OR barcode LIKE ?
-                    OR product_name LIKE ?
+                    p.sku LIKE ?
+                    OR p.barcode LIKE ?
+                    OR p.product_name LIKE ?
                 )
                 """.trimIndent()
             )
@@ -140,12 +140,17 @@ class ProductRepository(
         }
 
         filter.categoryId?.let {
-            conditions.add("category_id = ?")
+            conditions.add("p.category_id = ?")
             parameters.add(it)
         }
 
         filter.supplierId?.let {
-            conditions.add("supplier_id = ?")
+            conditions.add("p.supplier_id = ?")
+            parameters.add(it)
+        }
+
+        filter.warehouseId?.let {
+            conditions.add("EXISTS (SELECT 1 FROM inventory i WHERE i.product_id = p.product_id AND i.warehouse_id = ?)")
             parameters.add(it)
         }
 
@@ -160,17 +165,17 @@ class ProductRepository(
         }
 
         filter.isActive?.let {
-            conditions.add("is_active = ?")
+            conditions.add("p.is_active = ?")
             parameters.add(it)
         }
 
         filter.minPrice?.let {
-            conditions.add("sale_price >= ?")
+            conditions.add("p.sale_price >= ?")
             parameters.add(it)
         }
 
         filter.maxPrice?.let {
-            conditions.add("sale_price <= ?")
+            conditions.add("p.sale_price <= ?")
             parameters.add(it)
         }
 
@@ -208,7 +213,9 @@ class ProductRepository(
 
         val countSql = """
             SELECT COUNT(*)
-            FROM products
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             $whereClause
         """.trimIndent()
 

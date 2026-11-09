@@ -46,6 +46,10 @@ fun Route.productRoutes(
 
             val filter = ProductSearchFilter(
                 keyword = query["keyword"]?.takeIf { it.isNotBlank() },
+                warehouseId = query["warehouseId"]?.let {
+                    it.toLongOrNull()
+                        ?: throw IllegalArgumentException("Mã kho không hợp lệ.")
+                },
                 categoryId = query["categoryId"]?.let {
                     it.toLongOrNull()
                         ?: throw IllegalArgumentException("Mã danh mục không hợp lệ.")

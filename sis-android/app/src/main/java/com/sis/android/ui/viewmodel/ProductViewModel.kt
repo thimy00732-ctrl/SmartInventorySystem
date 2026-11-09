@@ -3,6 +3,7 @@ package com.sis.android.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sis.android.data.model.Product
+import com.sis.android.data.model.ProductFilterOptions
 import com.sis.android.data.repository.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,9 +14,9 @@ sealed interface ProductUiState {
     object Loading : ProductUiState
     data class Success(
         val products: List<Product>,
-        val totalStock: Int,         // Đổi thành Int
-        val totalReserved: Int,      // Đổi thành Int
-        val totalAvailable: Int,     // Đổi thành Int
+        val totalStock: Int,
+        val totalReserved: Int,
+        val totalAvailable: Int,
         val lowStockCount: Int,
         val nearExpiryCount: Int
     ) : ProductUiState
@@ -33,33 +34,207 @@ class ProductViewModel(
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val _selectedTab = MutableStateFlow("ALL") // "ALL", "LOW_STOCK", "EXPIRING"
+    private val _selectedWarehouseName = MutableStateFlow<String?>(null)
+    val selectedWarehouseName: StateFlow<String?> = _selectedWarehouseName.asStateFlow()
+
     val selectedTab: StateFlow<String> = _selectedTab.asStateFlow()
+
+    // Expose pagination state
+    private val _currentPage = MutableStateFlow(1)
+    val currentPageState: StateFlow<Int> = _currentPage.asStateFlow()
+    
+    private val _totalPages = MutableStateFlow(1)
+    val totalPagesState: StateFlow<Int> = _totalPages.asStateFlow()
+
+    // Quản lý dữ liệu options cho dropdown lọc
+    private val _filterOptions = MutableStateFlow<ProductFilterOptions?>(null)
+    val filterOptions: StateFlow<ProductFilterOptions?> = _filterOptions.asStateFlow()
 
     private var allProductsCache = listOf<Product>()
 
+    private var currentPage = 1
+    private var hasMorePages = true
+    private var totalPages = 1  // Thêm: Tổng số trang từ backend
+
+    // State phân trang
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    // Lưu filter hiện tại để load thêm
+    private var currentFilter: FilterState? = null
+
+    data class FilterState(
+        val keyword: String?,
+        val warehouseId: Long?,
+        val categoryId: Long?,
+        val supplierId: Long?,
+        val isActive: Boolean?,
+        val sortBy: String,
+        val sortDirection: String
+    )
+
+
     init {
+        loadFilterOptions()
         loadProducts()
     }
 
-    fun loadProducts() {
+    private fun loadFilterOptions() {
+        viewModelScope.launch {
+            try {
+                val options = repository.getFilterOptions()
+                _filterOptions.value = options
+            } catch (e: Exception) {
+                android.util.Log.e("ProductVM", "❌ Lỗi load filter options: ${e.message}")
+            }
+        }
+    }
+
+    fun loadProducts(loadMore: Boolean = false) {
+        if (loadMore && (_isLoadingMore.value || !hasMorePages)) {
+            android.util.Log.d("ProductVM", "⏸️ Không load: isLoadingMore=${_isLoadingMore.value}, hasMorePages=$hasMorePages")
+            return
+        }
+
+        android.util.Log.d("ProductVM", "📥 loadProducts: page=$currentPage")
+
         viewModelScope.launch {
             _uiState.value = ProductUiState.Loading
-            try {
-                // Gửi từ khóa tìm kiếm lên API backend
-                val keywordParam = _searchQuery.value.trim().takeIf { it.isNotEmpty() }
-                val list = repository.getProducts(keyword = keywordParam)
 
-                allProductsCache = list
+            try {
+                val keywordParam = _searchQuery.value.trim().takeIf { it.isNotEmpty() }
+                val pageResponse = repository.getProducts(
+                    keyword = keywordParam,
+                    page = currentPage,
+                    size = 20
+                )
+
+                android.util.Log.d("ProductVM", "✅ Nhận ${pageResponse.items.size} sản phẩm, page=${pageResponse.page}/${pageResponse.totalPages}, total=${pageResponse.totalItems}")
+
+                // Chỉ hiển thị trang hiện tại, không cộng dồn
+                allProductsCache = pageResponse.items
+                totalPages = pageResponse.totalPages
+                _totalPages.value = pageResponse.totalPages
+                _currentPage.value = currentPage
+                hasMorePages = currentPage < totalPages
+
+                android.util.Log.d("ProductVM", "📊 Cache: ${allProductsCache.size}, hasMorePages=$hasMorePages, currentPage=$currentPage")
+
                 updateFilteredState()
             } catch (e: Exception) {
+                android.util.Log.e("ProductVM", "❌ Lỗi: ${e.message}")
                 _uiState.value = ProductUiState.Error(e.localizedMessage ?: "Đã xảy ra lỗi kết nối Server")
             }
         }
     }
 
+    // Hàm mới: Chuyển đến trang cụ thể
+    fun goToPage(page: Int) {
+        currentPage = page
+        loadProducts()
+    }
+
+    // Hàm mới: Trang trước
+    fun previousPage() {
+        if (currentPage > 1) {
+            currentPage--
+            loadProducts()
+        }
+    }
+
+    // Hàm mới: Trang sau
+    fun nextPage() {
+        if (hasMorePages) {
+            currentPage++
+            loadProducts()
+        }
+    }
+
+    fun applyFilter(
+        keyword: String?,
+        warehouseId: Long? = null,
+        categoryId: Long?,
+        supplierId: Long?,
+        isActive: Boolean?,
+        sortBy: String,
+        sortDirection: String,
+        loadMore: Boolean = false
+    ) {
+        // Lưu filter hiện tại
+        currentFilter = FilterState(keyword, warehouseId, categoryId, supplierId, isActive, sortBy, sortDirection)
+
+        if (loadMore && (_isLoadingMore.value || !hasMorePages)) return
+
+
+        viewModelScope.launch {
+            if (loadMore) {
+                _isLoadingMore.value = true
+            } else {
+                _uiState.value = ProductUiState.Loading
+                currentPage = 1
+                hasMorePages = true
+            }
+
+            // Lưu tên kho đã chọn
+            _selectedWarehouseName.value = if (warehouseId != null) {
+                filterOptions.value?.warehouses?.find { it.warehouseId == warehouseId }?.warehouseName
+            } else {
+                null
+            }
+
+            try {
+                val pageResponse = repository.getProducts(
+                    keyword = keyword,
+                    warehouseId = warehouseId,
+                    categoryId = categoryId,
+                    supplierId = supplierId,
+                    isActive = isActive,
+                    sortBy = sortBy,
+                    sortDirection = sortDirection,
+                    page = currentPage,
+                    size = 20
+                )
+
+                if (loadMore) {
+                    allProductsCache = allProductsCache + pageResponse.items
+                } else {
+                    allProductsCache = pageResponse.items
+                }
+
+                hasMorePages = currentPage < pageResponse.totalPages
+                if (hasMorePages) currentPage++
+
+                updateFilteredState()
+                _isLoadingMore.value = false
+            } catch (e: Exception) {
+                _uiState.value = ProductUiState.Error("Lỗi khi lọc sản phẩm: ${e.message}")
+                _isLoadingMore.value = false
+            }
+        }
+    }
+
+    // Function mới: Load thêm trang tiếp theo
+    fun loadMoreProducts() {
+        currentFilter?.let {
+            applyFilter(
+                keyword = it.keyword,
+                warehouseId = it.warehouseId,
+                categoryId = it.categoryId,
+                supplierId = it.supplierId,
+                isActive = it.isActive,
+                sortBy = it.sortBy,
+                sortDirection = it.sortDirection,
+                loadMore = true
+            )
+        } ?: loadProducts(loadMore = true)
+    }
+
+
+
+
+
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
-        // 🔄 Gọi lại hàm tải dữ liệu từ server với từ khóa mới
         loadProducts()
     }
 
@@ -79,7 +254,10 @@ class ProductViewModel(
                     (product.barcode != null && product.barcode.contains(query))
 
             val matchesTab = when (tab) {
-                "LOW_STOCK" -> product.availableQuantity <= product.minStock
+                "LOW_STOCK" -> {
+                    // Chỉ lọc sản phẩm có đủ thông tin inventory
+                    product.availableQuantity > 0 && product.availableQuantity <= product.minStock
+                }
                 "EXPIRING" -> false
                 else -> true
             }
@@ -87,19 +265,13 @@ class ProductViewModel(
             matchesSearch && matchesTab
         }
 
-        // Tính toán các chỉ số tổng hợp thống kê cho Dashboard Header (Dùng sumOf với kiểu Int)
         val totalStock = allProductsCache.sumOf { it.stockQuantity }
         val totalReserved = allProductsCache.sumOf { it.reservedQuantity }
         val totalAvailable = allProductsCache.sumOf { it.availableQuantity }
-        // Đếm số lượng tồn thấp thực tế
-        val lowStockCount = allProductsCache.count { it.availableQuantity <= it.minStock }
-
-        // 🛠️ Đếm số lượng cận hạn thực tế từ cache (Thay thế số 5 cứng bằng logic thực tế của bạn)
-        val nearExpiryCount = allProductsCache.count { product ->
-            // Ví dụ: Kiểm tra nếu sản phẩm thuộc diện cận hạn (nếu có trường hạn sử dụng)
-            // product.isNearExpiry == true
-            false // Tạm thời trả về 0 nếu chưa có dữ liệu cận hạn, số hiển thị sẽ tự động cập nhật về (0)
+        val lowStockCount = allProductsCache.count { 
+            it.availableQuantity > 0 && it.availableQuantity <= it.minStock 
         }
+        val nearExpiryCount = allProductsCache.count { false }
 
         _uiState.value = ProductUiState.Success(
             products = filtered,
@@ -111,7 +283,7 @@ class ProductViewModel(
         )
     }
 
-    // CRUD: Thêm sản phẩm mới gọi API qua Repository
+    // CRUD: Thêm sản phẩm mới
     fun addProduct(product: Product, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -129,7 +301,7 @@ class ProductViewModel(
         }
     }
 
-    // CRUD: Cập nhật sản phẩm gọi API qua Repository
+    // CRUD: Cập nhật sản phẩm
     fun updateProduct(
         updated: Product,
         onSuccess: () -> Unit,
@@ -137,10 +309,8 @@ class ProductViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // Gọi repository để bắn PUT request lên server
                 val resultProduct = repository.updateProduct(updated.productId, updated)
                 if (resultProduct != null) {
-                    // Cập nhật thành công trên server thì mới đổi cache ở local
                     allProductsCache = allProductsCache.map {
                         if (it.productId == resultProduct.productId) resultProduct else it
                     }
@@ -164,7 +334,6 @@ class ProductViewModel(
             try {
                 val success = repository.deleteProduct(productId)
                 if (success) {
-                    // 🔄 Gọi tải lại danh sách sản phẩm từ server để UI cập nhật ngay lập tức
                     loadProducts()
                     onSuccess()
                 } else {
@@ -177,7 +346,7 @@ class ProductViewModel(
         }
     }
 
-    /** Ngừng kinh doanh sản phẩm */
+    /** Ngừng kinh doanh / Kích hoạt lại sản phẩm */
     fun toggleProductActive(
         product: Product,
         onSuccess: () -> Unit,
@@ -186,16 +355,14 @@ class ProductViewModel(
         viewModelScope.launch {
             try {
                 val success = if (product.isActive) {
-                    // Gọi API ngừng kinh doanh (isActive = true -> false)
                     repository.deactivateProduct(product.productId)
                 } else {
-                    // Gọi API tiếp tục kinh doanh (isActive = false -> true)
                     repository.reactivateProduct(product.productId)
                 }
 
                 if (success) {
-                    loadProducts() // Tải lại danh sách sản phẩm để cập nhật UI chung
-                    onSuccess()    // Báo thành công về màn hình chi tiết
+                    loadProducts()
+                    onSuccess()
                 } else {
                     onError("Không thể thay đổi trạng thái sản phẩm từ server.")
                 }
@@ -214,10 +381,8 @@ class ProductViewModel(
         viewModelScope.launch {
             val cleanCode = barcode.trim()
             try {
-                // 1. Thử tìm chính xác theo barcode trước
                 var product = repository.getProductByBarcode(cleanCode)
 
-                // 2. Nếu không thấy bằng barcode, thử tìm vét cạn trong cache xem có khớp với SKU không
                 if (product == null) {
                     product = allProductsCache.find {
                         it.sku.equals(cleanCode, ignoreCase = true) ||
@@ -226,15 +391,11 @@ class ProductViewModel(
                 }
 
                 if (product != null) {
-                    android.util.Log.d("ProductVM", "✅ Quét thành công: ${product.productName}")
                     onFound(product)
                 } else {
-                    android.util.Log.w("ProductVM", "⚠️ Không tìm thấy sản phẩm cho mã: $cleanCode")
                     onNotFound(cleanCode)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ProductVM", "❌ Lỗi API scan: ${e.message}")
-                // Thử tìm trong cache local phòng hờ mất mạng
                 val fallbackProduct = allProductsCache.find {
                     it.sku.equals(cleanCode, ignoreCase = true) ||
                             it.barcode.equals(cleanCode, ignoreCase = true)

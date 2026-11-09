@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sis.android.data.model.Product
 import com.sis.android.ui.components.display.AppCard
+import com.sis.android.ui.components.display.Pagination
 import com.sis.android.ui.components.form.ChipRow
 import com.sis.android.ui.components.layout.AppHeader
 import com.sis.android.ui.theme.Dimens
@@ -27,7 +28,7 @@ import com.sis.android.ui.theme.color.CrudColors
 import com.sis.android.ui.theme.style.CrudStyles
 import com.sis.android.ui.viewmodel.ProductUiState
 import com.sis.android.ui.viewmodel.ProductViewModel
-
+import com.sis.android.ui.components.ProductFilterBottomSheet
 @Composable
 fun ProductListScreen(
     viewModel: ProductViewModel,
@@ -38,6 +39,9 @@ fun ProductListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+    val filterOptions = viewModel.filterOptions.collectAsState().value
 
     Scaffold(
         containerColor = CrudColors.LightGreenBg,
@@ -55,9 +59,11 @@ fun ProductListScreen(
         Column(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
+            val selectedWarehouseName by viewModel.selectedWarehouseName.collectAsState()
+
             AppHeader(
-                title = "Kho hàng",
-                subtitle = "Theo dõi sản phẩm và tồn kho",
+                title = if (selectedWarehouseName != null) "📦 $selectedWarehouseName" else "Kho hàng",
+                subtitle = if (selectedWarehouseName != null) "Xem sản phẩm theo kho" else "Theo dõi sản phẩm và tồn kho",
                 actions = {
                     IconButton(
                         onClick = onAddClick,
@@ -67,6 +73,7 @@ fun ProductListScreen(
                     }
                 }
             )
+
 
             Column(
                 modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding, vertical = 12.dp),
@@ -95,7 +102,7 @@ fun ProductListScreen(
                         )
                     )
                     IconButton(
-                        onClick = { /* Lọc nâng cao */ },
+                        onClick = { showFilterSheet = true },
                         modifier = Modifier.size(56.dp).clip(CrudStyles.InputShape).background(Color.White)
                     ) {
                         Icon(Icons.Default.Tune, contentDescription = "Lọc", tint = CrudColors.Primary)
@@ -168,20 +175,37 @@ fun ProductListScreen(
                                         color = CrudColors.TextSecondary
                                     )
                                 } else {
-                                    // LazyColumn tự quản lý padding bên trong Card mà không cần tham số contentPadding của AppCard
                                     LazyColumn(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(12.dp)
                                     ) {
-                                        itemsIndexed(state.products) { index, product ->
-                                            ProductRowItem(product) { onProductClick(product) }
-                                            if (index < state.products.lastIndex) {
-                                                HorizontalDivider(color = CrudColors.BorderColor)
-                                            }
+                                        itemsIndexed(
+                                            items = state.products,
+                                            key = { _, product -> product.productId }
+                                        ) { _, product ->
+                                            ProductRowItem(
+                                                product = product,
+                                                onClick = { onProductClick(product) }
+                                            )
+                                        }
+
+                                        // Phân trang ở cuối danh sách
+                                        item {
+                                            val currentPageValue by viewModel.currentPageState.collectAsState()
+                                            val totalPagesValue by viewModel.totalPagesState.collectAsState()
+                                            
+                                            Pagination(
+                                                currentPage = currentPageValue,
+                                                totalPages = totalPagesValue,
+                                                onPageClick = { page -> viewModel.goToPage(page) },
+                                                onPreviousClick = { viewModel.previousPage() },
+                                                onNextClick = { viewModel.nextPage() }
+                                            )
                                         }
                                     }
                                 }
+
                             }
                         }
                     }
@@ -189,4 +213,32 @@ fun ProductListScreen(
             }
         }
     }
+    // Hiển thị bottom sheet filter
+
+    if (showFilterSheet) {
+        filterOptions?.let { options ->
+            ProductFilterBottomSheet(
+                warehouses = options.warehouses,
+                categories = options.categories,
+                suppliers = options.suppliers,
+                sortByOptions = options.sortByOptions,
+                sortDirectionOptions = options.sortDirectionOptions,
+                onApplyFilter = { warehouseId, categoryId, supplierId, isActive, sortBy, sortDirection ->
+                    viewModel.applyFilter(
+                        keyword = searchQuery.ifBlank { null },
+                        warehouseId = warehouseId,
+                        categoryId = categoryId,
+                        supplierId = supplierId,
+                        isActive = isActive,
+                        sortBy = sortBy,
+                        sortDirection = sortDirection
+                    )
+                },
+                onDismiss = { showFilterSheet = false }
+            )
+        }
+    }
+
+
+
 }

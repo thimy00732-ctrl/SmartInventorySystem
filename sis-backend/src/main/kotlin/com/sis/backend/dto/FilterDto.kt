@@ -17,8 +17,11 @@ import java.math.BigDecimal
  * @property sortBy Cột dùng để sắp xếp.
  * @property sortDirection Chiều sắp xếp ASC hoặc DESC.
  */
+/*UPDATE
+* warehouseId vào ProductSearchFilter*/
 data class ProductSearchFilter(
     val keyword: String? = null,
+    val warehouseId: Long? = null,
     val categoryId: Long? = null,
     val categoryName: String? = null,
     val supplierId: Long? = null,

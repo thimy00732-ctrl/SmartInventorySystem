@@ -9,14 +9,28 @@ import com.sis.android.data.model.ProductPageResponse
 import com.sis.android.data.model.CreateProductRequest
 import com.sis.android.data.model.UpdateProductRequest
 import com.sis.android.data.model.ProductResponse
+import com.sis.android.data.model.ProductFilterOptions
 interface ApiService {
 
     @GET("api/products")
     suspend fun getProducts(
         @Query("keyword") keyword: String? = null,
+        @Query("warehouseId") warehouseId: Long? = null,
+        @Query("categoryId") categoryId: Long? = null,
+        @Query("supplierId") supplierId: Long? = null,
+        @Query("isActive") isActive: Boolean? = null,
+        @Query("sortBy") sortBy: String? = "created_at",
+        @Query("sortDirection") sortDirection: String? = "DESC",
         @Query("page") page: Int = 1,
-        @Query("size") size: Int = 100
-    ): ProductPageResponse  // <-- BỎ ApiResponse wrapper
+        @Query("size") size: Int = 10
+    ): ProductPageResponse
+
+
+    @GET("api/products/filter-options")
+    suspend fun getFilterOptions(): Response<ProductFilterOptions>
+
+    @GET("api/inventory/filter-options")
+    suspend fun getInventoryFilterOptions(): Response<ProductFilterOptions>
 
 
 

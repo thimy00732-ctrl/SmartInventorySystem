@@ -1,29 +1,51 @@
 package com.sis.android.data.repository
 
 import com.sis.android.data.model.Product
+import com.sis.android.data.model.ProductPageResponse
 import com.sis.android.data.remote.RetrofitClient
 import com.sis.android.data.model.CreateProductRequest
 import com.sis.android.data.model.UpdateProductRequest
-
+import com.sis.android.data.model.ProductFilterOptions
 class ProductRepository {
 
     // Sử dụng ApiService đã cấu hình Retrofit
     private val apiService = RetrofitClient.apiService
 
-    /** Lấy danh sách sản phẩm từ API /api/products (hỗ trợ tìm kiếm từ khóa q) */
-    suspend fun getProducts(keyword: String? = null): List<Product> {
+    /** Lấy danh sách sản phẩm từ API /api/products hỗ trợ đầy đủ lọc, sắp xếp và phân trang */
+    suspend fun getProducts(
+        keyword: String? = null,
+        warehouseId: Long? = null,
+        categoryId: Long? = null,
+        supplierId: Long? = null,
+        isActive: Boolean? = null,
+        sortBy: String? = "created_at",
+        sortDirection: String? = "DESC",
+        page: Int = 1,
+        size: Int = 10
+    ): ProductPageResponse {
         return try {
-            println("🔵 Đang gọi API: keyword=$keyword")
-            val pageResponse = apiService.getProducts(keyword = keyword, page = 1, size = 100)
-            println("🟢 Response: items size=${pageResponse.items.size}")
-
-            pageResponse.items  // <-- Lấy trực tiếp items
+            println("🔵 Đang gọi API: keyword=$keyword, warehouseId=$warehouseId, categoryId=$categoryId, supplierId=$supplierId, isActive=$isActive, sortBy=$sortBy, sortDirection=$sortDirection")
+            val pageResponse = apiService.getProducts(
+                keyword = keyword,
+                warehouseId = warehouseId,
+                categoryId = categoryId,
+                supplierId = supplierId,
+                isActive = isActive,
+                sortBy = sortBy,
+                sortDirection = sortDirection,
+                page = page,
+                size = size
+            )
+            println("🟢 Response: items size=${pageResponse.items.size}, page=${pageResponse.page}/${pageResponse.totalPages}, total=${pageResponse.totalItems}")
+            pageResponse  // Trả về cả response, không chỉ items
         } catch (e: Exception) {
             println("🔴 LỖI: ${e.message}")
             e.printStackTrace()
-            throw Exception("Lỗi kết nối Server: ${e.localizedMessage ?: "Không thể tải danh sách sản phẩm"}")
+            // Trả về response rỗng
+            ProductPageResponse(emptyList(), page, size, 0, 0)
         }
     }
+
 
     /** Xem chi tiết sản phẩm theo ID từ API /api/products/{id} */
     suspend fun getProductById(productId: Long): Product? {
@@ -174,4 +196,17 @@ class ProductRepository {
             false
         }
     }
+
+    /** Lấy dữ liệu Dropdown cho bộ lọc từ endpoint /api/inventory/filter-options */
+    suspend fun getFilterOptions(): ProductFilterOptions? {
+        return try {
+            val response = apiService.getInventoryFilterOptions()
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            android.util.Log.e("ProductRepo", "❌ Lỗi lấy filter options: ${e.message}", e)
+            null
+        }
+    }
+
+
 }
