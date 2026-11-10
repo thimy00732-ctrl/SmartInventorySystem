@@ -13,6 +13,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import java.sql.Connection
 import javax.sql.DataSource
+import com.sis.backend.routes.inventoryRoutes
 
 lateinit var dataSource: DataSource
     private set
@@ -77,5 +78,6 @@ fun Application.module() {
 
         // Đăng ký authentication & authorization routes (UC01-UC07)
         authRoutes(dataSource)
+        inventoryRoutes(dataSource)
     }
 }

@@ -1,6 +1,9 @@
 package com.sis.android.data.remote
 
 import com.google.gson.annotations.SerializedName
+import com.sis.android.data.model.InventoryItemResponse
+import com.sis.android.data.model.ReservationResponse
+import com.sis.android.data.model.UpdateReservationRequest
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -127,4 +130,14 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body request: ChangePasswordRequest
     ): Response<Map<String, Any>>
+
+
+    @GET("api/inventory")
+    suspend fun getInventoryList(): Response<List<InventoryItemResponse>>
+
+    @PATCH("api/inventory/{inventoryId}/reservation")
+    suspend fun updateReservation(
+        @Path("inventoryId") inventoryId: Int,
+        @Body request: UpdateReservationRequest
+    ): Response<ReservationResponse>
 }

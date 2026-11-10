@@ -3,17 +3,24 @@ package com.sis.android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sis.android.data.model.ManagedStaff
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import com.sis.android.data.model.InventoryItemResponse
 import com.sis.android.di.AppModule
-import com.sis.android.ui.auth.LoginScreen
-import com.sis.android.ui.staffmanagement.StaffManagementDetailScreen
-import com.sis.android.ui.staffmanagement.StaffManagementFormScreen
-import com.sis.android.ui.staffmanagement.StaffManagementListScreen
-import com.sis.android.ui.staffmanagement.StaffManagementViewModel
+import com.sis.android.ui.inventory.UpdateReservationDialog
 
 class MainActivity : ComponentActivity() {
 
@@ -22,105 +29,59 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                AppNavigator()
+                DirectReservationDialogScreen()
             }
         }
     }
 
     @Composable
-    private fun AppNavigator() {
-        val sessionManager = remember { AppModule.provideSessionManager(this) }
-        val staffRepository = remember { AppModule.provideStaffRepository() }
+    private fun DirectReservationDialogScreen() {
+        val inventoryRepository = remember { AppModule.provideInventoryRepository() }
 
-        // Kiểm tra session đã lưu khi mở app
-        var currentRole by remember {
-            mutableStateOf(
-                AppModule.provideAuthRepository(this).getSavedRole()
-            )
+        var inventoryItem by remember { mutableStateOf<InventoryItemResponse?>(null) }
+        var isLoading by remember { mutableStateOf(true) }
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+        var showDialog by remember { mutableStateOf(true) }
+
+        LaunchedEffect(Unit) {
+            val result = inventoryRepository.getInventoryList()
+            result.onSuccess { list ->
+                inventoryItem = list.firstOrNull { it.inventoryId == 1 } ?: list.firstOrNull()
+                isLoading = false
+            }.onFailure { error ->
+                errorMessage = error.message ?: "Không thể kết nối máy chủ"
+                isLoading = false
+            }
         }
 
-        if (currentRole == null) {
-            // Chưa đăng nhập → hiện màn hình Login
-            LoginScreen(
-                onLoginSuccess = { role ->
-                    currentRole = role
-                }
-            )
-        } else {
-            // Đã đăng nhập → hiện Staff Management
-            val isAdmin = currentRole == "ADMIN"
-
-            val staffViewModel: StaffManagementViewModel = viewModel(
-                factory = StaffManagementViewModel.Factory(
-                    repository = staffRepository,
-                    sessionManager = sessionManager
-                )
-            )
-
-            val uiState by staffViewModel.uiState.collectAsStateWithLifecycle()
-
-            var selectedStaff by remember { mutableStateOf<ManagedStaff?>(null) }
-            var showAddForm by remember { mutableStateOf(false) }
-            var showEditForm by remember { mutableStateOf(false) }
-
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF3F5FA)),
+            contentAlignment = Alignment.Center
+        ) {
             when {
-                // Màn hình thêm nhân viên
-                showAddForm -> {
-                    StaffManagementFormScreen(
-                        staff = null,
-                        isLoading = uiState.isLoading,
-                        onBack = { showAddForm = false },
-                        onSave = { fullName, email, phone, password, role ->
-                            staffViewModel.addStaff(fullName, email, phone, password, role)
-                            showAddForm = false
-                        }
-                    )
+                isLoading -> {
+                    CircularProgressIndicator(color = Color(0xFF365314))
                 }
 
-                // Màn hình chỉnh sửa nhân viên
-                showEditForm && selectedStaff != null -> {
-                    StaffManagementFormScreen(
-                        staff = selectedStaff,
-                        isLoading = uiState.isLoading,
-                        onBack = { showEditForm = false },
-                        onSave = { fullName, email, phone, _, role ->
-                            val updated = selectedStaff!!.copy(
-                                fullName = fullName,
-                                email = email,
-                                phone = phone,
-                                role = role
-                            )
-                            staffViewModel.updateStaff(updated)
-                            selectedStaff = updated
-                            showEditForm = false
-                        }
-                    )
+                errorMessage != null -> {
+                    Text(text = errorMessage!!, color = Color.Red)
                 }
 
-                // Màn hình chi tiết nhân viên
-                selectedStaff != null -> {
-                    // Đồng bộ selectedStaff với dữ liệu mới nhất từ ViewModel
-                    val latestStaff = uiState.staff.find { it.id == selectedStaff!!.id }
-                        ?: selectedStaff!!
-
-                    StaffManagementDetailScreen(
-                        staff = latestStaff,
-                        isAdmin = isAdmin,
-                        onBack = { selectedStaff = null },
-                        onEdit = { showEditForm = true },
-                        onToggleActive = {
-                            staffViewModel.toggleActive(latestStaff)
+                showDialog && inventoryItem != null -> {
+                    val item = inventoryItem!!
+                    UpdateReservationDialog(
+                        inventoryId = item.inventoryId,
+                        stockQuantity = item.stockQuantity,
+                        reservedQuantity = item.reservedQuantity,
+                        repository = inventoryRepository,
+                        onDismiss = {
+                            showDialog = false
+                        },
+                        onSuccess = { newQuantity ->
+                            showDialog = false
                         }
-                    )
-                }
-
-                // Màn hình danh sách nhân viên
-                else -> {
-                    StaffManagementListScreen(
-                        isAdmin = isAdmin,
-                        viewModel = staffViewModel,
-                        onAddStaff = { showAddForm = true },
-                        onOpenStaff = { staff -> selectedStaff = staff }
                     )
                 }
             }

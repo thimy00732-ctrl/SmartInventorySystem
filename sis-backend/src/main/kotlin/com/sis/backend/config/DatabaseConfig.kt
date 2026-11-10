@@ -16,7 +16,7 @@ object DatabaseConfig {
                 ?: "root"
 
             password = System.getenv("DB_PASSWORD")
-                ?: "220305"
+                ?: "922605ad@A"
 
             driverClassName = "com.mysql.cj.jdbc.Driver"
 

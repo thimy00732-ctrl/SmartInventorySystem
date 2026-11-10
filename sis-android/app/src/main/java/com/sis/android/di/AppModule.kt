@@ -3,6 +3,7 @@ package com.sis.android.di
 import android.content.Context
 import com.sis.android.data.remote.RetrofitClient
 import com.sis.android.data.repository.AuthRepository
+import com.sis.android.data.repository.InventoryRepository
 import com.sis.android.data.repository.StaffManagementRepository
 import com.sis.android.data.session.SessionManager
 
@@ -20,6 +21,9 @@ object AppModule {
 
     @Volatile
     private var staffRepository: StaffManagementRepository? = null
+
+    @Volatile
+    private var inventoryRepository: InventoryRepository? = null
 
     fun provideSessionManager(context: Context): SessionManager {
         return sessionManager ?: synchronized(this) {
@@ -43,6 +47,14 @@ object AppModule {
             staffRepository ?: StaffManagementRepository(
                 apiService = RetrofitClient.apiService
             ).also { staffRepository = it }
+        }
+    }
+
+    fun provideInventoryRepository(): InventoryRepository {
+        return inventoryRepository ?: synchronized(this) {
+            inventoryRepository ?: InventoryRepository(
+                apiService = RetrofitClient.apiService
+            ).also { inventoryRepository = it }
         }
     }
 }
