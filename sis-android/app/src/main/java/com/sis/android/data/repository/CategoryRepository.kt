@@ -23,8 +23,12 @@ class CategoryRepository {
 
     suspend fun createCategory(category: Category): Category? {
         return try {
-            apiService.createCategory(category)
+            android.util.Log.d("CategoryRepo", "📝 Creating category: ${category.categoryName}")
+            val result = apiService.createCategory(category)
+            android.util.Log.d("CategoryRepo", "✅ Created successfully: ID ${result.categoryId}")
+            result
         } catch (e: Exception) {
+            android.util.Log.e("CategoryRepo", "❌ Error creating category: ${e.message}", e)
             null
         }
     }
@@ -39,10 +43,40 @@ class CategoryRepository {
 
     suspend fun deactivateCategory(id: Long): Boolean {
         return try {
+            android.util.Log.d("CategoryRepo", "🔴 Deactivating category ID=$id")
             apiService.deactivateCategory(id)
+            android.util.Log.d("CategoryRepo", "✅ Deactivate successful")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("CategoryRepo", "❌ Error deactivating: ${e.message}", e)
+            false
+        }
+    }
+
+
+    suspend fun reactivateCategory(id: Long): Boolean {
+        return try {
+            android.util.Log.d("CategoryRepo", "🟢 Reactivating category ID=$id")
+            apiService.reactivateCategory(id)
+            android.util.Log.d("CategoryRepo", "✅ Reactivate successful")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("CategoryRepo", "❌ Error reactivating: ${e.message}", e)
+            false
+        }
+    }
+
+
+    suspend fun deleteCategory(id: Long): Boolean {
+        return try {
+            apiService.deleteCategory(id)
             true
         } catch (e: Exception) {
             false
         }
     }
+
+
+
+
 }

@@ -91,5 +91,44 @@ fun Route.categoryRoutes(categoryController: CategoryController) {
 
             categoryController.deactivateCategory(call, categoryId)
         }
+
+        /* UPDATE 2024: Thêm route kích hoạt lại danh mục */
+        /**
+         * PATCH /api/categories/{id}/reactivate
+         * Kích hoạt lại danh mục đã ngừng hoạt động.
+         */
+        patch("/{id}/reactivate") {
+            val categoryId = call.parameters["id"]?.toLongOrNull()
+
+            if (categoryId == null || categoryId <= 0) {
+                call.respond(
+                    io.ktor.http.HttpStatusCode.BadRequest,
+                    mapOf("message" to "ID danh mục không hợp lệ.")
+                )
+                return@patch
+            }
+
+            categoryController.reactivateCategory(call, categoryId)
+        }
+
+        /* UPDATE 2024: Thêm route xóa danh mục */
+        /**
+         * DELETE /api/categories/{id}
+         * Xóa danh mục (chỉ cho phép xóa danh mục đã ngừng hoạt động
+         * và không có sản phẩm).
+         */
+        delete("/{id}") {
+            val categoryId = call.parameters["id"]?.toLongOrNull()
+
+            if (categoryId == null || categoryId <= 0) {
+                call.respond(
+                    io.ktor.http.HttpStatusCode.BadRequest,
+                    mapOf("message" to "ID danh mục không hợp lệ.")
+                )
+                return@delete
+            }
+
+            categoryController.deleteCategory(call, categoryId)
+        }
     }
 }

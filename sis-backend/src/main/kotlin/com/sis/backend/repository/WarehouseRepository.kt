@@ -145,7 +145,7 @@ class WarehouseRepository(
             warehouseId = resultSet.getLong("warehouse_id"),
             warehouseName = resultSet.getString("warehouse_name"),
             location = resultSet.getString("location"),
-            isActive = resultSet.getBoolean("is_active"),
+            isActive = resultSet.getInt("is_active") == 1, // FIX: MySQL tinyint(1) trả về int
             createdAt = resultSet.getTimestamp("created_at").toLocalDateTime(),
             updatedAt = resultSet.getTimestamp("updated_at").toLocalDateTime()
         )

@@ -29,7 +29,7 @@ class CategoryRepository(
             categoryId = result.getLong("category_id"),
             categoryName = result.getString("category_name"),
             description = result.getString("description"),
-            isActive = result.getBoolean("is_active"),
+            isActive = result.getInt("is_active") == 1, // FIX: MySQL tinyint(1) trả về int, không phải boolean
             createdAt = result.getTimestamp("created_at")
                 ?.toLocalDateTime()
                 ?.toString(),
@@ -340,6 +340,78 @@ class CategoryRepository(
                 }
             }
         }
+
+    /* UPDATE 2024: Thêm method kích hoạt lại danh mục */
+    /**
+     * Kích hoạt lại danh mục đã ngừng hoạt động.
+     *
+     * @param categoryId ID danh mục cần kích hoạt lại.
+     * @return true nếu có bản ghi được cập nhật.
+     */
+    fun reactivate(categoryId: Long): Boolean {
+        val sql = """
+            UPDATE categories
+            SET is_active = TRUE,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE category_id = ?
+              AND is_active = FALSE
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+                statement.executeUpdate() > 0
+            }
+        }
     }
+
+    /* UPDATE 2024: Thêm method kiểm tra danh mục có sản phẩm không */
+    /**
+     * Kiểm tra danh mục có sản phẩm nào không (cả active và inactive).
+     *
+     * @param categoryId ID danh mục cần kiểm tra.
+     * @return true nếu tồn tại ít nhất 1 sản phẩm thuộc danh mục.
+     */
+    fun hasProducts(categoryId: Long): Boolean {
+        val sql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM products
+                WHERE category_id = ?
+            )
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+
+                statement.executeQuery().use { result ->
+                    result.next() && result.getBoolean(1)
+                }
+            }
+        }
+    }
+
+    /* UPDATE 2024: Thêm method xóa danh mục */
+    /**
+     * Xóa danh mục vật lý khỏi database.
+     *
+     * @param categoryId ID danh mục cần xóa.
+     * @return true nếu có bản ghi bị xóa.
+     */
+    fun delete(categoryId: Long): Boolean {
+        val sql = """
+            DELETE FROM categories
+            WHERE category_id = ?
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, categoryId)
+                statement.executeUpdate() > 0
+            }
+        }
+    }
+}
 
 

@@ -47,7 +47,7 @@ class CategoryViewModel(
         viewModelScope.launch {
             try {
                 repository.createCategory(category)
-                loadCategories() // Load lại danh sách mới nhất từ server
+                loadCategories()
                 onSuccess()
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage ?: "Lỗi thêm danh mục"
@@ -61,7 +61,7 @@ class CategoryViewModel(
             try {
                 val id = category.categoryId ?: return@launch
                 repository.updateCategory(id, category)
-                loadCategories() // Load lại danh sách mới nhất từ server
+                loadCategories()
                 onSuccess()
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage ?: "Lỗi cập nhật danh mục"
@@ -74,9 +74,36 @@ class CategoryViewModel(
         viewModelScope.launch {
             try {
                 repository.deactivateCategory(categoryId)
-                loadCategories() // Load lại danh sách sau khi ngừng hoạt động
+                loadCategories()
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage ?: "Lỗi ngừng hoạt động danh mục"
+            }
+        }
+    }
+
+    /** Kích hoạt lại danh mục qua API */
+    fun reactivateCategory(categoryId: Long) {
+        viewModelScope.launch {
+            try {
+                repository.reactivateCategory(categoryId)
+                loadCategories()
+            } catch (e: Exception) {
+                _errorMessage.value = e.localizedMessage ?: "Lỗi kích hoạt lại danh mục"
+            }
+        }
+    }
+
+    /** Xóa danh mục qua API */
+    fun deleteCategory(categoryId: Long, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                repository.deleteCategory(categoryId)
+                loadCategories()
+                onSuccess()
+            } catch (e: Exception) {
+                val errorMsg = e.localizedMessage ?: "Lỗi xóa danh mục"
+                _errorMessage.value = errorMsg
+                onError(errorMsg)
             }
         }
     }

@@ -29,6 +29,7 @@ import com.sis.backend.repository.WarehouseRepository
 import com.sis.backend.service.InventoryService
 import com.sis.backend.controller.InventoryController
 import com.sis.backend.routes.inventoryRoutes
+import com.sis.backend.config.configureStatusPages
 
 /*UPDATE
 *import com.sis.backend.repository.InventoryRepository
@@ -47,6 +48,9 @@ fun main() {
 }
 
 fun Application.module() {
+    // Cấu hình xử lý ngoại lệ tập trung
+    configureStatusPages()
+    
     install(ContentNegotiation) {
         json(
             Json {

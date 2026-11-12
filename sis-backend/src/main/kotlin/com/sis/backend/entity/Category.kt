@@ -17,7 +17,7 @@ data class Category(
     val categoryId: Long? = null,
     val categoryName: String,
     val description: String? = null,
-    val isActive: Boolean = true,
+    val isActive: Boolean,  // Bỏ default value để luôn serialize field này
     val createdAt: String? = null,
     val updatedAt: String? = null
 )

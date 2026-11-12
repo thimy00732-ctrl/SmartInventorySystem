@@ -109,11 +109,8 @@ class CategoryService(
         val existingCategory = categoryRepository.findById(categoryId)
             ?: throw CategoryNotFoundException()
 
-        if (!existingCategory.isActive) {
-            throw InvalidCategoryException(
-                "Không thể cập nhật danh mục đã ngừng hoạt động."
-            )
-        }
+        // Cho phép cập nhật cả category đã ngừng hoạt động
+        // để có thể sửa thông tin trước khi kích hoạt lại
 
         val categoryName = request.categoryName.trim()
         val description = request.description
@@ -202,5 +199,83 @@ class CategoryService(
                 "Mô tả danh mục không được vượt quá 500 ký tự."
             )
         }
+    }
+
+    /* UPDATE 2024: Thêm nghiệp vụ kích hoạt lại danh mục */
+    /**
+     * Kích hoạt lại danh mục đã ngừng hoạt động.
+     *
+     * @param categoryId ID danh mục cần kích hoạt lại.
+     * @return true nếu thao tác thành công.
+     * @throws InvalidCategoryException Nếu ID không hợp lệ hoặc danh mục đang hoạt động.
+     * @throws CategoryNotFoundException Nếu không tìm thấy danh mục.
+     */
+    fun reactivateCategory(categoryId: Long): Boolean {
+        if (categoryId <= 0) {
+            throw InvalidCategoryException(
+                "ID danh mục phải lớn hơn 0."
+            )
+        }
+
+        val category = categoryRepository.findById(categoryId)
+            ?: throw CategoryNotFoundException()
+
+        if (category.isActive) {
+            throw InvalidCategoryException(
+                "Danh mục đang hoạt động."
+            )
+        }
+
+        val reactivated = categoryRepository.reactivate(categoryId)
+
+        if (!reactivated) {
+            throw CategoryNotFoundException()
+        }
+
+        return true
+    }
+
+    /* UPDATE 2024: Thêm nghiệp vụ xóa danh mục */
+    /**
+     * Xóa danh mục (chỉ cho phép xóa danh mục đã ngừng hoạt động 
+     * và không có sản phẩm nào).
+     *
+     * @param categoryId ID danh mục cần xóa.
+     * @return true nếu thao tác thành công.
+     * @throws InvalidCategoryException Nếu ID không hợp lệ.
+     * @throws CategoryNotFoundException Nếu không tìm thấy danh mục.
+     * @throws IllegalStateException Nếu danh mục đang hoạt động hoặc còn sản phẩm.
+     */
+    fun deleteCategory(categoryId: Long): Boolean {
+        if (categoryId <= 0) {
+            throw InvalidCategoryException(
+                "ID danh mục phải lớn hơn 0."
+            )
+        }
+
+        val category = categoryRepository.findById(categoryId)
+            ?: throw CategoryNotFoundException()
+
+        // Chỉ cho xóa danh mục đã ngừng hoạt động
+        if (category.isActive) {
+            throw IllegalStateException(
+                "Vui lòng ngừng hoạt động danh mục trước khi xóa."
+            )
+        }
+
+        // Kiểm tra còn sản phẩm không (cả active và inactive)
+        if (categoryRepository.hasProducts(categoryId)) {
+            throw IllegalStateException(
+                "Không thể xóa danh mục còn sản phẩm."
+            )
+        }
+
+        val deleted = categoryRepository.delete(categoryId)
+
+        if (!deleted) {
+            throw CategoryNotFoundException()
+        }
+
+        return true
     }
 }

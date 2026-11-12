@@ -55,10 +55,10 @@ class SupplierService(
      */
     fun getSuppliers(
         keyword: String?,
-        activeOnly: Boolean = true
+        activeOnly: Boolean? = null
     ): List<SupplierResponse> {
         return SupplierMapper.toResponseList(
-            supplierRepository.findAll(keyword, activeOnly)
+            supplierRepository.findAll(keyword, activeOnly ?: false)
         )
     }
 
@@ -315,5 +315,44 @@ class SupplierService(
                 "Không thể kích hoạt lại nhà cung cấp."
             )
         }
+    }
+
+    /* UPDATE 2024: Thêm nghiệp vụ xóa nhà cung cấp */
+    /**
+     * Xóa nhà cung cấp (chỉ cho phép xóa nhà cung cấp đã ngừng hoạt động
+     * và không có sản phẩm hoặc giao dịch liên quan).
+     *
+     * @param supplierId ID nhà cung cấp cần xóa.
+     * @throws SupplierNotFoundException Nếu không tìm thấy nhà cung cấp.
+     * @throws InvalidSupplierException Nếu nhà cung cấp đang hoạt động hoặc còn dữ liệu liên quan.
+     */
+    fun deleteSupplier(supplierId: Long) {
+        val supplier = supplierRepository.findById(supplierId)
+            ?: throw SupplierNotFoundException()
+
+        // Chỉ cho xóa nhà cung cấp đã ngừng hoạt động
+        if (supplier.isActive) {
+            throw InvalidSupplierException(
+                "Vui lòng ngừng hoạt động nhà cung cấp trước khi xóa."
+            )
+        }
+
+        // Kiểm tra còn sản phẩm không
+        val products = supplierRepository.findProductsBySupplierId(supplierId)
+        if (products.isNotEmpty()) {
+            throw InvalidSupplierException(
+                "Không thể xóa nhà cung cấp còn ${products.size} sản phẩm."
+            )
+        }
+
+        // Kiểm tra còn giao dịch không
+        val transactions = supplierRepository.findImportTransactionsBySupplierId(supplierId)
+        if (transactions.isNotEmpty()) {
+            throw InvalidSupplierException(
+                "Không thể xóa nhà cung cấp có lịch sử giao dịch."
+            )
+        }
+
+        supplierRepository.delete(supplierId)
     }
 }

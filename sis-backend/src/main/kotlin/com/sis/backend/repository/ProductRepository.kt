@@ -749,7 +749,7 @@ class ProductRepository(
                 ?: BigDecimal.ZERO,
             minStock = resultSet.getInt("min_stock"),
             maxStock = resultSet.getInt("max_stock"),
-            isActive = resultSet.getBoolean("is_active"),
+            isActive = resultSet.getInt("is_active") == 1, // FIX: MySQL tinyint(1) trả về int
             createdAt = resultSet.getTimestamp("created_at").toLocalDateTime(),
             updatedAt = resultSet.getTimestamp("updated_at").toLocalDateTime(),
             // ↓↓↓ THÊM 3 TRƯỜNG NÀY ↓↓↓

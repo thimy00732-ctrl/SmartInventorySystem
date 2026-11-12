@@ -2,6 +2,7 @@ package com.sis.backend.routes
 
 import com.sis.backend.controller.SupplierController
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
@@ -65,6 +66,16 @@ fun Route.supplierRoutes(
          */
         patch("/{id}/reactivate") {
             supplierController.reactivateSupplier(call)
+        }
+
+        /* UPDATE 2024: Thêm route xóa nhà cung cấp */
+        /**
+         * DELETE /api/suppliers/{id}
+         * Xóa nhà cung cấp (chỉ cho phép xóa nhà cung cấp đã ngừng hoạt động
+         * và không có sản phẩm hoặc giao dịch liên quan).
+         */
+        delete("/{id}") {
+            supplierController.deleteSupplier(call)
         }
     }
 }

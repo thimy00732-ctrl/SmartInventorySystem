@@ -31,7 +31,7 @@ class SupplierRepository(
      */
     fun findAll(
         keyword: String? = null,
-        activeOnly: Boolean = true
+        activeOnly: Boolean = false  // ← Đổi thành false = lấy tất cả
     ): List<Supplier> {
         val sql = StringBuilder(
             """
@@ -591,5 +591,25 @@ class SupplierRepository(
             }
         }
     }
-}
 
+    /* UPDATE 2024: Thêm method xóa nhà cung cấp */
+    /**
+     * Xóa nhà cung cấp vật lý khỏi database.
+     *
+     * @param supplierId ID nhà cung cấp cần xóa.
+     * @return true nếu có bản ghi bị xóa.
+     */
+    fun delete(supplierId: Long): Boolean {
+        val sql = """
+            DELETE FROM suppliers
+            WHERE supplier_id = ?
+        """.trimIndent()
+
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, supplierId)
+                return statement.executeUpdate() > 0
+            }
+        }
+    }
+}

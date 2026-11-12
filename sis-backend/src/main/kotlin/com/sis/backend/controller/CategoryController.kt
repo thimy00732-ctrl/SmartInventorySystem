@@ -228,4 +228,123 @@ class CategoryController(
             )
         }
     }
+
+    /* UPDATE 2024: Thêm API kích hoạt lại danh mục đã ngừng hoạt động */
+    /**
+     * Kích hoạt lại danh mục đã ngừng hoạt động.
+     *
+     * @param call Đối tượng xử lý request và response HTTP.
+     * @param categoryId ID danh mục cần kích hoạt lại.
+     */
+    suspend fun reactivateCategory(
+        call: ApplicationCall,
+        categoryId: Long
+    ) {
+        try {
+            categoryService.reactivateCategory(categoryId)
+
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf("message" to "Đã kích hoạt lại danh mục.")
+            )
+        } catch (exception: NoSuchElementException) {
+            call.respond(
+                HttpStatusCode.NotFound,
+                mapOf(
+                    "message" to (
+                            exception.message ?: "Không tìm thấy danh mục."
+                            )
+                )
+            )
+        } catch (exception: IllegalArgumentException) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                mapOf(
+                    "message" to (
+                            exception.message ?: "ID danh mục không hợp lệ."
+                            )
+                )
+            )
+        } catch (exception: IllegalStateException) {
+            call.respond(
+                HttpStatusCode.Conflict,
+                mapOf(
+                    "message" to (
+                            exception.message
+                                ?: "Không thể kích hoạt lại danh mục."
+                            )
+                )
+            )
+        } catch (exception: Exception) {
+            call.application.log.error(
+                "Lỗi khi kích hoạt lại danh mục ID=$categoryId",
+                exception
+            )
+
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                mapOf("message" to "Không thể kích hoạt lại danh mục.")
+            )
+        }
+    }
+
+    /* UPDATE 2024: Thêm API xóa danh mục */
+    /**
+     * Xóa danh mục (chỉ cho phép xóa danh mục đã ngừng hoạt động 
+     * và không có sản phẩm).
+     *
+     * @param call Đối tượng xử lý request và response HTTP.
+     * @param categoryId ID danh mục cần xóa.
+     */
+    suspend fun deleteCategory(
+        call: ApplicationCall,
+        categoryId: Long
+    ) {
+        try {
+            categoryService.deleteCategory(categoryId)
+
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf("message" to "Đã xóa danh mục.")
+            )
+        } catch (exception: NoSuchElementException) {
+            call.respond(
+                HttpStatusCode.NotFound,
+                mapOf(
+                    "message" to (
+                            exception.message ?: "Không tìm thấy danh mục."
+                            )
+                )
+            )
+        } catch (exception: IllegalArgumentException) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                mapOf(
+                    "message" to (
+                            exception.message ?: "ID danh mục không hợp lệ."
+                            )
+                )
+            )
+        } catch (exception: IllegalStateException) {
+            call.respond(
+                HttpStatusCode.Conflict,
+                mapOf(
+                    "message" to (
+                            exception.message
+                                ?: "Không thể xóa danh mục."
+                            )
+                )
+            )
+        } catch (exception: Exception) {
+            call.application.log.error(
+                "Lỗi khi xóa danh mục ID=$categoryId",
+                exception
+            )
+
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                mapOf("message" to "Không thể xóa danh mục.")
+            )
+        }
+    }
 }

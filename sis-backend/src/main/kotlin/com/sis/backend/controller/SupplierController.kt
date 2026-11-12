@@ -55,7 +55,7 @@ class SupplierController(
             val keyword = call.request.queryParameters["keyword"]
 
             val activeOnly = call.request.queryParameters["activeOnly"]
-                ?.toBooleanStrictOrNull() ?: true
+                ?.toBooleanStrictOrNull()  // ← null = lấy tất cả
 
             val result = supplierService.getSuppliers(
                 keyword = keyword,
@@ -160,6 +160,28 @@ class SupplierController(
                 HttpStatusCode.OK,
                 mapOf(
                     "message" to "Hợp tác lại nhà cung cấp thành công."
+                )
+            )
+        } catch (exception: Exception) {
+            handleException(call, exception)
+        }
+    }
+
+    /* UPDATE 2024: Thêm API xóa nhà cung cấp */
+    /**
+     * Xóa nhà cung cấp (chỉ cho phép xóa nhà cung cấp đã ngừng hoạt động
+     * và không có sản phẩm hoặc giao dịch liên quan).
+     */
+    suspend fun deleteSupplier(call: ApplicationCall) {
+        try {
+            val supplierId = getSupplierId(call)
+
+            supplierService.deleteSupplier(supplierId)
+
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf(
+                    "message" to "Đã xóa nhà cung cấp."
                 )
             )
         } catch (exception: Exception) {
