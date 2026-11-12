@@ -29,9 +29,10 @@ dependencies {
     // Status
     implementation("io.ktor:ktor-server-status-pages-jvm:3.3.1")
 
-    // MySQL connection
+    // MySQL/MariaDB connection
     implementation("com.zaxxer:HikariCP:6.3.0")
     implementation("com.mysql:mysql-connector-j:9.4.0")
+    testImplementation("org.mariadb.jdbc:mariadb-java-client:3.5.1")
 
     // Logging
     implementation("ch.qos.logback:logback-classic:1.5.18")
@@ -41,6 +42,7 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.3.1")
     testImplementation("io.mockk:mockk:1.14.5")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testImplementation("com.auth0:java-jwt:4.4.0")
 }
 
 kotlin {

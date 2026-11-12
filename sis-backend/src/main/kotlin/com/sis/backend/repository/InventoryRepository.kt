@@ -280,6 +280,7 @@ class InventoryRepository(private val dataSource: DataSource) {
                 p.category_id,
                 c.category_name,
                 p.supplier_id,
+                s.supplier_name,
                 p.unit,
                 i.batch_code,
                 i.manufacture_date,
@@ -291,6 +292,7 @@ class InventoryRepository(private val dataSource: DataSource) {
             FROM inventory i
             INNER JOIN products p ON i.product_id = p.product_id
             LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             INNER JOIN warehouses w ON i.warehouse_id = w.warehouse_id
             WHERE i.inventory_id = ?
         """.trimIndent()
@@ -302,6 +304,165 @@ class InventoryRepository(private val dataSource: DataSource) {
                 statement.executeQuery().use { resultSet ->
                     if (resultSet.next()) mapInventory(resultSet) else null
                 }
+            }
+        }
+    }
+    
+    /**
+     * Lấy danh sách tồn kho theo product ID (UC30 by-product).
+     * 
+     * Chỉ lấy kho đang hoạt động (is_active = TRUE).
+     * Sắp xếp theo stock_quantity DESC.
+     * 
+     * @param productId ID sản phẩm.
+     * @return Danh sách inventory của sản phẩm.
+     */
+    fun findByProductId(productId: Long): List<Inventory> {
+        val sql = """
+            SELECT
+                i.inventory_id,
+                i.warehouse_id,
+                w.warehouse_name,
+                i.product_id,
+                p.product_name,
+                p.sku,
+                p.barcode,
+                p.category_id,
+                c.category_name,
+                p.supplier_id,
+                s.supplier_name,
+                p.unit,
+                i.batch_code,
+                i.manufacture_date,
+                i.expiry_date,
+                i.stock_quantity,
+                i.reserved_quantity,
+                i.available_quantity,
+                i.updated_at
+            FROM inventory i
+            INNER JOIN products p ON i.product_id = p.product_id
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            INNER JOIN warehouses w ON i.warehouse_id = w.warehouse_id
+            WHERE i.product_id = ?
+              AND w.is_active = TRUE
+            ORDER BY i.stock_quantity DESC, i.inventory_id DESC
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setLong(1, productId)
+
+                statement.executeQuery().use { resultSet ->
+                    buildList {
+                        while (resultSet.next()) {
+                            add(mapInventory(resultSet))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Cập nhật reserved_quantity (UC31) với transaction lock.
+     * 
+     * TRONG MỘT TRANSACTION:
+     * 1. setAutoCommit(false)
+     * 2. SELECT ... FOR UPDATE (khóa dòng)
+     * 3. Kiểm tra 0 <= n <= stock_quantity
+     * 4. UPDATE reserved_quantity = n
+     * 5. Đọc lại và commit
+     * 6. Rollback nếu lỗi
+     * 7. Đặt lại autoCommit = true trong finally
+     * 
+     * @param inventoryId ID dòng tồn kho.
+     * @param newReservedQuantity Số lượng giữ chỗ mới (>= 0, <= stock_quantity).
+     * @return Inventory sau khi cập nhật, hoặc null nếu không tồn tại.
+     * @throws IllegalArgumentException nếu vi phạm ràng buộc.
+     */
+    fun updateReserved(inventoryId: Long, newReservedQuantity: Int): Inventory? {
+        val connection = dataSource.connection
+        val originalAutoCommit = connection.autoCommit
+        
+        try {
+            // Bắt đầu transaction
+            connection.autoCommit = false
+            
+            // 1. Khóa dòng bằng SELECT ... FOR UPDATE
+            val lockSql = """
+                SELECT stock_quantity, reserved_quantity
+                FROM inventory
+                WHERE inventory_id = ?
+                FOR UPDATE
+            """.trimIndent()
+            
+            val (stockQuantity, currentReserved) = connection.prepareStatement(lockSql).use { stmt ->
+                stmt.setLong(1, inventoryId)
+                
+                stmt.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        Pair(rs.getInt("stock_quantity"), rs.getInt("reserved_quantity"))
+                    } else {
+                        // Không tồn tại → rollback và trả null
+                        connection.rollback()
+                        return null
+                    }
+                }
+            }
+            
+            // 2. Validate: 0 <= n <= stock_quantity
+            if (newReservedQuantity < 0) {
+                connection.rollback()
+                throw IllegalArgumentException(
+                    "Số lượng giữ chỗ không được âm."
+                )
+            }
+            
+            if (newReservedQuantity > stockQuantity) {
+                connection.rollback()
+                throw IllegalArgumentException(
+                    "Số lượng giữ chỗ ($newReservedQuantity) vượt quá tồn kho hiện tại ($stockQuantity)."
+                )
+            }
+            
+            // 3. UPDATE reserved_quantity
+            // KHÔNG ghi available_quantity (cột sinh tự động)
+            val updateSql = """
+                UPDATE inventory
+                SET reserved_quantity = ?
+                WHERE inventory_id = ?
+            """.trimIndent()
+            
+            connection.prepareStatement(updateSql).use { stmt ->
+                stmt.setInt(1, newReservedQuantity)
+                stmt.setLong(2, inventoryId)
+                stmt.executeUpdate()
+            }
+            
+            // 4. Commit transaction
+            connection.commit()
+            
+            // 5. Đọc lại dòng sau khi cập nhật
+            return findById(inventoryId)
+            
+        } catch (e: Exception) {
+            // Rollback nếu có lỗi
+            try {
+                connection.rollback()
+            } catch (rollbackEx: Exception) {
+                // Log rollback error nhưng throw exception gốc
+                println("Rollback error: ${rollbackEx.message}")
+            }
+            throw e
+            
+        } finally {
+            // Đặt lại autoCommit về giá trị ban đầu
+            try {
+                connection.autoCommit = originalAutoCommit
+                connection.close()
+            } catch (e: Exception) {
+                println("Error resetting autoCommit: ${e.message}")
             }
         }
     }

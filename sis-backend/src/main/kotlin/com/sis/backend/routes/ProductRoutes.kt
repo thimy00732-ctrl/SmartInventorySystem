@@ -1,11 +1,14 @@
 package com.sis.backend.routes
 
 import com.sis.backend.controller.ProductController
+import com.sis.backend.controller.ThresholdController
 import com.sis.backend.dto.*
 import com.sis.backend.dto.product.CreateProductRequest
 import com.sis.backend.dto.product.UpdateProductRequest
 import com.sis.backend.repository.CategoryRepository
 import com.sis.backend.repository.SupplierRepository
+import com.sis.backend.security.RolePolicy
+import com.sis.backend.security.requireRole
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -21,11 +24,13 @@ import io.ktor.server.routing.route
  * Khai báo các API quản lý sản phẩm.
  *
  * @param productController Controller xử lý yêu cầu sản phẩm.
+ * @param thresholdController Controller xử lý ngưỡng tồn kho (UC33).
  * @param categoryRepository Repository danh mục (cho dropdown).
  * @param supplierRepository Repository nhà cung cấp (cho dropdown).
  */
 fun Route.productRoutes(
     productController: ProductController,
+    thresholdController: ThresholdController? = null,
     categoryRepository: CategoryRepository? = null,
     supplierRepository: SupplierRepository? = null
 ) {
@@ -225,6 +230,45 @@ fun Route.productRoutes(
                 HttpStatusCode.OK,
                 mapOf("message" to "Xóa sản phẩm thành công.")
             )
+        }
+
+        /**
+         * UC33 GET: Lấy danh sách sản phẩm có thiết lập ngưỡng tồn kho.
+         * 
+         * GET /api/products/thresholds?warehouseId={id}
+         * 
+         * ADMIN và STAFF đều được xem (RolePolicy.PRODUCT_THRESHOLDS_VIEW).
+         */
+        requireRole(*RolePolicy.PRODUCT_THRESHOLDS_VIEW.toTypedArray()) {
+            get("/thresholds") {
+                val warehouseId = call.request.queryParameters["warehouseId"]?.toLongOrNull()
+                
+                val result = thresholdController?.getProductsWithThresholds(warehouseId)
+                    ?: emptyList()
+                
+                call.respond(HttpStatusCode.OK, result)
+            }
+        }
+
+        /**
+         * UC33 PATCH: Cập nhật ngưỡng tồn kho cho sản phẩm.
+         * 
+         * PATCH /api/products/{id}/thresholds
+         * 
+         * CHỈ ADMIN được gọi (RolePolicy.PRODUCT_THRESHOLDS_UPDATE).
+         */
+        requireRole(*RolePolicy.PRODUCT_THRESHOLDS_UPDATE.toTypedArray()) {
+            patch("/{id}/thresholds") {
+                val productId = call.parameters["id"]?.toLongOrNull()
+                    ?: throw IllegalArgumentException("Mã sản phẩm không hợp lệ.")
+                
+                val request = call.receive<UpdateThresholdRequest>()
+                
+                val result = thresholdController?.updateThresholds(productId, request)
+                    ?: throw IllegalStateException("ThresholdController chưa được khởi tạo.")
+                
+                call.respond(HttpStatusCode.OK, result)
+            }
         }
     }
 }
