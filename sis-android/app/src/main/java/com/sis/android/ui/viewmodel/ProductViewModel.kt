@@ -52,7 +52,7 @@ class ProductViewModel(
 
     private var allProductsCache = listOf<Product>()
 
-    private var currentPage = 1
+    // Chỉ dùng _currentPage StateFlow, XÓA biến private var currentPage
     private var hasMorePages = true
     private var totalPages = 1  // Thêm: Tổng số trang từ backend
 
@@ -96,17 +96,25 @@ class ProductViewModel(
             return
         }
 
-        android.util.Log.d("ProductVM", "📥 loadProducts: page=$currentPage")
+        android.util.Log.d("ProductVM", "📥 loadProducts: page=${_currentPage.value}")
 
         viewModelScope.launch {
             _uiState.value = ProductUiState.Loading
 
             try {
                 val keywordParam = _searchQuery.value.trim().takeIf { it.isNotEmpty() }
+                val filter = currentFilter
+                
                 val pageResponse = repository.getProducts(
-                    keyword = keywordParam,
-                    page = currentPage,
-                    size = 20
+                    keyword = filter?.keyword ?: keywordParam,
+                    warehouseId = filter?.warehouseId,
+                    categoryId = filter?.categoryId,
+                    supplierId = filter?.supplierId,
+                    isActive = filter?.isActive,
+                    sortBy = filter?.sortBy ?: "created_at",
+                    sortDirection = filter?.sortDirection ?: "DESC",
+                    page = _currentPage.value,
+                    size = 10  // Thay đổi từ 20 → 10
                 )
 
                 android.util.Log.d("ProductVM", "✅ Nhận ${pageResponse.items.size} sản phẩm, page=${pageResponse.page}/${pageResponse.totalPages}, total=${pageResponse.totalItems}")
@@ -115,10 +123,10 @@ class ProductViewModel(
                 allProductsCache = pageResponse.items
                 totalPages = pageResponse.totalPages
                 _totalPages.value = pageResponse.totalPages
-                _currentPage.value = currentPage
-                hasMorePages = currentPage < totalPages
+                _currentPage.value = pageResponse.page // Sync từ backend
+                hasMorePages = _currentPage.value < totalPages
 
-                android.util.Log.d("ProductVM", "📊 Cache: ${allProductsCache.size}, hasMorePages=$hasMorePages, currentPage=$currentPage")
+                android.util.Log.d("ProductVM", "📊 Cache: ${allProductsCache.size}, hasMorePages=$hasMorePages, currentPage=${_currentPage.value}")
 
                 updateFilteredState()
             } catch (e: Exception) {
@@ -130,22 +138,24 @@ class ProductViewModel(
 
     // Hàm mới: Chuyển đến trang cụ thể
     fun goToPage(page: Int) {
-        currentPage = page
-        loadProducts()
+        if (page in 1..totalPages && page != _currentPage.value) {
+            _currentPage.value = page
+            loadProducts()
+        }
     }
 
     // Hàm mới: Trang trước
     fun previousPage() {
-        if (currentPage > 1) {
-            currentPage--
+        if (_currentPage.value > 1) {
+            _currentPage.value = _currentPage.value - 1
             loadProducts()
         }
     }
 
     // Hàm mới: Trang sau
     fun nextPage() {
-        if (hasMorePages) {
-            currentPage++
+        if (_currentPage.value < totalPages) {
+            _currentPage.value = _currentPage.value + 1
             loadProducts()
         }
     }
@@ -165,52 +175,16 @@ class ProductViewModel(
 
         if (loadMore && (_isLoadingMore.value || !hasMorePages)) return
 
-
-        viewModelScope.launch {
-            if (loadMore) {
-                _isLoadingMore.value = true
-            } else {
-                _uiState.value = ProductUiState.Loading
-                currentPage = 1
-                hasMorePages = true
-            }
-
-            // Lưu tên kho đã chọn
-            _selectedWarehouseName.value = if (warehouseId != null) {
-                filterOptions.value?.warehouses?.find { it.warehouseId == warehouseId }?.warehouseName
-            } else {
-                null
-            }
-
-            try {
-                val pageResponse = repository.getProducts(
-                    keyword = keyword,
-                    warehouseId = warehouseId,
-                    categoryId = categoryId,
-                    supplierId = supplierId,
-                    isActive = isActive,
-                    sortBy = sortBy,
-                    sortDirection = sortDirection,
-                    page = currentPage,
-                    size = 20
-                )
-
-                if (loadMore) {
-                    allProductsCache = allProductsCache + pageResponse.items
-                } else {
-                    allProductsCache = pageResponse.items
-                }
-
-                hasMorePages = currentPage < pageResponse.totalPages
-                if (hasMorePages) currentPage++
-
-                updateFilteredState()
-                _isLoadingMore.value = false
-            } catch (e: Exception) {
-                _uiState.value = ProductUiState.Error("Lỗi khi lọc sản phẩm: ${e.message}")
-                _isLoadingMore.value = false
-            }
+        // Lưu tên kho đã chọn
+        _selectedWarehouseName.value = if (warehouseId != null) {
+            filterOptions.value?.warehouses?.find { it.warehouseId == warehouseId }?.warehouseName
+        } else {
+            null
         }
+
+        // Reset về trang 1 khi apply filter
+        _currentPage.value = 1
+        loadProducts()
     }
 
     // Function mới: Load thêm trang tiếp theo

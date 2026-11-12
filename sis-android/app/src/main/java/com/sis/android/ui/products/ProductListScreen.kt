@@ -195,6 +195,9 @@ fun ProductListScreen(
                                             val currentPageValue by viewModel.currentPageState.collectAsState()
                                             val totalPagesValue by viewModel.totalPagesState.collectAsState()
                                             
+                                            // Debug log
+                                            android.util.Log.d("ProductList", "🔢 Pagination: current=$currentPageValue, total=$totalPagesValue")
+                                            
                                             Pagination(
                                                 currentPage = currentPageValue,
                                                 totalPages = totalPagesValue,
