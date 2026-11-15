@@ -11,8 +11,16 @@ import com.sis.android.data.model.UpdateProductRequest
 import com.sis.android.data.model.ProductResponse
 import com.sis.android.data.model.ProductFilterOptions
 import com.sis.android.data.model.Supplier
+import com.sis.android.data.model.LoginRequest
+import com.sis.android.data.model.LoginResponse
 
 interface ApiService {
+
+    // ========== AUTH ==========
+    @POST("api/auth/login")
+    suspend fun login(
+        @Body request: LoginRequest
+    ): LoginResponse
 
     // ========== PRODUCTS ==========
     @GET("api/products")

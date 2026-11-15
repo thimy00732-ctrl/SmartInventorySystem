@@ -21,6 +21,8 @@ import com.sis.android.data.model.Product
 import com.sis.android.data.model.Category
 import com.sis.android.data.model.Supplier
 import com.sis.android.data.model.User
+import com.sis.android.data.model.LoginRequest
+import com.sis.android.data.remote.RetrofitInstance
 import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
 import com.sis.android.ui.products.ProductFormScreen
@@ -71,16 +73,85 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
-    // Mock current user - TODO: replace with actual AuthViewModel
-    val currentUser = remember {
-        User(
-            user_id = 1,
+    // Current user state - null = chưa đăng nhập
+    var currentUser by remember { mutableStateOf<User?>(null) }
+    
+    /**
+     * Hàm gọi API login - được gọi từ LoginScreen
+     * @param email Email người dùng nhập vào
+     * @param password Password người dùng nhập vào
+     * @param onSuccess Callback khi đăng nhập thành công
+     * @param onError Callback khi đăng nhập thất bại (trả về message lỗi)
+     */
+    fun performLogin(
+        email: String,
+        password: String,
+        onSuccess: (User) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        scope.launch {
+            try {
+                val loginRequest = LoginRequest(email = email, password = password)
+                val response = RetrofitInstance.api.login(loginRequest)
+                
+                // Lưu user vào state
+                currentUser = response.user
+                
+                // Callback thành công
+                onSuccess(response.user)
+                
+                android.util.Log.d("MainActivity", "Login thành công: ${response.user.fullName} (${response.user.role})")
+            } catch (e: Exception) {
+                val errorMsg = when {
+                    e.message?.contains("401") == true -> "Email hoặc mật khẩu không đúng"
+                    e.message?.contains("Unable to resolve host") == true -> "Không kết nối được server"
+                    e.message?.contains("timeout") == true -> "Kết nối timeout"
+                    else -> "Lỗi đăng nhập: ${e.message}"
+                }
+                
+                android.util.Log.e("MainActivity", "Login error: ${e.message}")
+                
+                // Callback lỗi
+                onError(errorMsg)
+            }
+        }
+    }
+    
+    // TODO: MOCK LOGIN - XÓA ĐOẠN NÀY KHI MERGE LoginScreen
+    // Tạm thời tự động login với tài khoản admin để test
+    LaunchedEffect(Unit) {
+        performLogin(
             email = "admin@warehouse.vn",
-            fullName = "Admin User",
-            role = "ADMIN",
-            is_active = true
+            password = "Admin@123",
+            onSuccess = { user ->
+                android.util.Log.d("MainActivity", "Mock login OK: ${user.fullName}")
+            },
+            onError = { error ->
+                android.util.Log.e("MainActivity", "Mock login failed: $error")
+                // Fallback: tạo mock user offline
+                currentUser = User(
+                    user_id = 1,
+                    email = "admin@warehouse.vn",
+                    fullName = "Admin User (Mock)",
+                    role = "ADMIN",
+                    is_active = true
+                )
+            }
         )
     }
+    
+    // TODO: Khi merge LoginScreen vào, UNCOMMENT đoạn này và XÓA LaunchedEffect phía trên:
+    // if (currentUser == null) {
+    //     LoginScreen(
+    //         onLoginClick = { email, password ->
+    //             performLogin(email, password, 
+    //                 onSuccess = { user -> /* Login xong, currentUser đã được set */ },
+    //                 onError = { errorMsg -> /* Hiển thị lỗi trong LoginScreen */ }
+    //             )
+    //         }
+    //     )
+    //     return
+    // }
     
     // ViewModels
     val productViewModel: ProductViewModel = viewModel()
