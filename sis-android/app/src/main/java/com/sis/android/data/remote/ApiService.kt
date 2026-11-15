@@ -1,28 +1,135 @@
 package com.sis.android.data.remote
 
+import com.google.gson.annotations.SerializedName
 import com.sis.android.data.model.ApiResponse
 import com.sis.android.data.model.Category
 import com.sis.android.data.model.Product
-import retrofit2.http.*
-import retrofit2.Response
 import com.sis.android.data.model.ProductPageResponse
 import com.sis.android.data.model.CreateProductRequest
 import com.sis.android.data.model.UpdateProductRequest
 import com.sis.android.data.model.ProductResponse
 import com.sis.android.data.model.ProductFilterOptions
 import com.sis.android.data.model.Supplier
-import com.sis.android.data.model.LoginRequest
-import com.sis.android.data.model.LoginResponse
+import retrofit2.http.*
+import retrofit2.Response
+
+// ─── Auth DTOs ─────────────────────────────────────────────────────────────────
+
+data class LoginRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String
+)
+
+data class LoginResponse(
+    @SerializedName("user_id") val userId: Int,
+    @SerializedName("email") val email: String,
+    @SerializedName("full_name") val fullName: String?,
+    @SerializedName("role") val role: String,
+    @SerializedName("access_token") val accessToken: String,
+    @SerializedName("refresh_token") val refreshToken: String,
+    @SerializedName("expires_in") val expiresIn: Long
+)
+
+data class LogoutRequest(
+    @SerializedName("refresh_token") val refreshToken: String
+)
+
+data class CreateUserRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String,
+    @SerializedName("full_name") val fullName: String,
+    @SerializedName("phone") val phone: String,
+    @SerializedName("role") val role: String
+)
+
+data class UpdateUserRequest(
+    @SerializedName("email") val email: String? = null,
+    @SerializedName("full_name") val fullName: String? = null,
+    @SerializedName("phone") val phone: String? = null,
+    @SerializedName("role") val role: String? = null,
+    @SerializedName("status") val status: String? = null
+)
+
+data class UserResponse(
+    @SerializedName("user_id") val userId: Int,
+    @SerializedName("email") val email: String,
+    @SerializedName("full_name") val fullName: String?,
+    @SerializedName("phone") val phone: String?,
+    @SerializedName("role") val role: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("last_login_at") val lastLoginAt: String?,
+    @SerializedName("created_at") val createdAt: String?
+)
+
+data class StaffListResponse(
+    @SerializedName("total") val total: Int,
+    @SerializedName("staff") val staff: List<UserResponse>
+)
+
+data class RefreshTokenRequest(
+    @SerializedName("refresh_token") val refreshToken: String
+)
+
+data class RefreshTokenResponse(
+    @SerializedName("access_token") val accessToken: String,
+    @SerializedName("refresh_token") val refreshToken: String,
+    @SerializedName("expires_in") val expiresIn: Long
+)
+
+data class ChangePasswordRequest(
+    @SerializedName("old_password") val oldPassword: String,
+    @SerializedName("new_password") val newPassword: String
+)
+
+// ─── API Interface ─────────────────────────────────────────────────────────────
 
 interface ApiService {
 
-    // ========== AUTH ==========
+    // ========== AUTH & USER MANAGEMENT ==========
+    
     @POST("api/auth/login")
-    suspend fun login(
-        @Body request: LoginRequest
-    ): LoginResponse
+    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
+
+    @POST("api/auth/logout")
+    suspend fun logout(@Body request: LogoutRequest): Response<Map<String, String>>
+
+    @POST("api/auth/users")
+    suspend fun createUser(
+        @Header("Authorization") token: String,
+        @Body request: CreateUserRequest
+    ): Response<UserResponse>
+
+    @PUT("api/auth/users/{id}")
+    suspend fun updateUser(
+        @Header("Authorization") token: String,
+        @Path("id") userId: Int,
+        @Body request: UpdateUserRequest
+    ): Response<UserResponse>
+
+    @GET("api/auth/users/{id}")
+    suspend fun getUserById(
+        @Header("Authorization") token: String,
+        @Path("id") userId: Int
+    ): Response<UserResponse>
+
+    @GET("api/auth/users")
+    suspend fun getUsers(
+        @Header("Authorization") token: String,
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<StaffListResponse>
+
+    @POST("api/auth/refresh-token")
+    suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<RefreshTokenResponse>
+
+    @POST("api/auth/change-password")
+    suspend fun changePassword(
+        @Header("Authorization") token: String,
+        @Body request: ChangePasswordRequest
+    ): Response<Map<String, Any>>
 
     // ========== PRODUCTS ==========
+    
     @GET("api/products")
     suspend fun getProducts(
         @Query("keyword") keyword: String? = null,
@@ -75,6 +182,7 @@ interface ApiService {
     suspend fun deleteProduct(@Path("id") productId: Long)
 
     // ========== CATEGORIES ==========
+    
     @GET("api/categories")
     suspend fun getCategories(): List<Category>
 
@@ -99,13 +207,13 @@ interface ApiService {
         @Path("id") id: Long
     )
 
-
     @DELETE("api/categories/{id}")
     suspend fun deleteCategory(
         @Path("id") id: Long
     )
 
     // ========== SUPPLIERS ==========
+    
     @GET("api/suppliers")
     suspend fun getSuppliers(
         @Query("keyword") keyword: String? = null,

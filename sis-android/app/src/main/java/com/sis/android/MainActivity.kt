@@ -4,25 +4,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sis.android.data.model.Product
 import com.sis.android.data.model.Category
 import com.sis.android.data.model.Supplier
 import com.sis.android.data.model.User
 import com.sis.android.data.model.LoginRequest
+import com.sis.android.data.model.ManagedStaff
 import com.sis.android.data.remote.RetrofitInstance
+import com.sis.android.di.AppModule
 import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
 import com.sis.android.ui.products.ProductFormScreen
@@ -34,6 +35,11 @@ import com.sis.android.ui.suppliers.SupplierListScreen
 import com.sis.android.ui.suppliers.SupplierDetailScreen
 import com.sis.android.ui.suppliers.SupplierFormScreen
 import com.sis.android.ui.navigation.AppNavigationDrawer
+import com.sis.android.ui.auth.LoginScreen
+import com.sis.android.ui.staffmanagement.StaffManagementDetailScreen
+import com.sis.android.ui.staffmanagement.StaffManagementFormScreen
+import com.sis.android.ui.staffmanagement.StaffManagementListScreen
+import com.sis.android.ui.staffmanagement.StaffManagementViewModel
 import com.sis.android.ui.theme.SISTheme
 import com.sis.android.ui.viewmodel.ProductViewModel
 import com.sis.android.ui.viewmodel.CategoryViewModel
@@ -47,8 +53,40 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SISTheme {
-                MainScreen()
+                MainApp()
             }
+        }
+    }
+
+    @Composable
+    private fun MainApp() {
+        val sessionManager = remember { AppModule.provideSessionManager(this) }
+        val authRepository = remember { AppModule.provideAuthRepository(this) }
+        val staffRepository = remember { AppModule.provideStaffRepository() }
+
+        // Kiểm tra session đã lưu khi mở app
+        var currentUser by remember {
+            mutableStateOf(authRepository.getSavedUser())
+        }
+
+        if (currentUser == null) {
+            // Chưa đăng nhập → hiện màn hình Login
+            LoginScreen(
+                onLoginSuccess = { user ->
+                    currentUser = user
+                }
+            )
+        } else {
+            // Đã đăng nhập → hiện màn hình chính với Navigation
+            MainScreen(
+                currentUser = currentUser!!,
+                sessionManager = sessionManager,
+                staffRepository = staffRepository,
+                onLogout = {
+                    authRepository.clearSession()
+                    currentUser = null
+                }
+            )
         }
     }
 }
@@ -69,98 +107,34 @@ sealed class BottomNavItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    currentUser: User,
+    sessionManager: com.sis.android.data.session.SessionManager,
+    staffRepository: com.sis.android.data.repository.StaffManagementRepository,
+    onLogout: () -> Unit
+) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    
-    // Current user state - null = chưa đăng nhập
-    var currentUser by remember { mutableStateOf<User?>(null) }
-    
-    /**
-     * Hàm gọi API login - được gọi từ LoginScreen
-     * @param email Email người dùng nhập vào
-     * @param password Password người dùng nhập vào
-     * @param onSuccess Callback khi đăng nhập thành công
-     * @param onError Callback khi đăng nhập thất bại (trả về message lỗi)
-     */
-    fun performLogin(
-        email: String,
-        password: String,
-        onSuccess: (User) -> Unit,
-        onError: (String) -> Unit
-    ) {
-        scope.launch {
-            try {
-                val loginRequest = LoginRequest(email = email, password = password)
-                val response = RetrofitInstance.api.login(loginRequest)
-                
-                // Lưu user vào state
-                currentUser = response.user
-                
-                // Callback thành công
-                onSuccess(response.user)
-                
-                android.util.Log.d("MainActivity", "Login thành công: ${response.user.fullName} (${response.user.role})")
-            } catch (e: Exception) {
-                val errorMsg = when {
-                    e.message?.contains("401") == true -> "Email hoặc mật khẩu không đúng"
-                    e.message?.contains("Unable to resolve host") == true -> "Không kết nối được server"
-                    e.message?.contains("timeout") == true -> "Kết nối timeout"
-                    else -> "Lỗi đăng nhập: ${e.message}"
-                }
-                
-                android.util.Log.e("MainActivity", "Login error: ${e.message}")
-                
-                // Callback lỗi
-                onError(errorMsg)
-            }
-        }
-    }
-    
-    // TODO: MOCK LOGIN - XÓA ĐOẠN NÀY KHI MERGE LoginScreen
-    // Tạm thời tự động login với tài khoản admin để test
-    LaunchedEffect(Unit) {
-        performLogin(
-            email = "admin@warehouse.vn",
-            password = "Admin@123",
-            onSuccess = { user ->
-                android.util.Log.d("MainActivity", "Mock login OK: ${user.fullName}")
-            },
-            onError = { error ->
-                android.util.Log.e("MainActivity", "Mock login failed: $error")
-                // Fallback: tạo mock user offline
-                currentUser = User(
-                    user_id = 1,
-                    email = "admin@warehouse.vn",
-                    fullName = "Admin User (Mock)",
-                    role = "ADMIN",
-                    is_active = true
-                )
-            }
-        )
-    }
-    
-    // TODO: Khi merge LoginScreen vào, UNCOMMENT đoạn này và XÓA LaunchedEffect phía trên:
-    // if (currentUser == null) {
-    //     LoginScreen(
-    //         onLoginClick = { email, password ->
-    //             performLogin(email, password, 
-    //                 onSuccess = { user -> /* Login xong, currentUser đã được set */ },
-    //                 onError = { errorMsg -> /* Hiển thị lỗi trong LoginScreen */ }
-    //             )
-    //         }
-    //     )
-    //     return
-    // }
-    
+
     // ViewModels
     val productViewModel: ProductViewModel = viewModel()
     val categoryViewModel: CategoryViewModel = viewModel()
     val supplierViewModel: SupplierViewModel = viewModel()
-    
+    val staffViewModel: StaffManagementViewModel = viewModel(
+        factory = StaffManagementViewModel.Factory(
+            repository = staffRepository,
+            sessionManager = sessionManager
+        )
+    )
+
     // Current screen state
     var currentScreen by remember { mutableStateOf("LIST") }
-    
+
+    // Staff management states
+    var selectedStaff by remember { mutableStateOf<ManagedStaff?>(null) }
+    var showAddStaffForm by remember { mutableStateOf(false) }
+    var showEditStaffForm by remember { mutableStateOf(false) }
+
     // Bottom nav items
     val bottomNavItems = listOf(
         BottomNavItem.Products,
@@ -168,7 +142,7 @@ fun MainScreen() {
         BottomNavItem.Suppliers,
         BottomNavItem.Scanner
     )
-    
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -177,47 +151,54 @@ fun MainScreen() {
                 currentRoute = currentScreen,
                 onNavigate = { route ->
                     currentScreen = route
+                    scope.launch {
+                        drawerState.close()
+                    }
                 },
                 onCloseDrawer = {
                     scope.launch {
                         drawerState.close()
                     }
-                }
+                },
+                onLogout = onLogout
             )
         }
     ) {
         Scaffold(
-            containerColor = Color.White,  // Force white
+            containerColor = Color.White,
             bottomBar = {
-                NavigationBar(
-                    containerColor = Color.White,
-                    contentColor = CrudColors.Primary,
-                    tonalElevation = 0.dp  // Bỏ shadow/tint
-                ) {
-                    bottomNavItems.forEach { item ->
-                        val selected = currentScreen == item.route ||
-                            (item.route == "LIST" && (currentScreen == "FORM" || currentScreen == "DETAIL"))
-                        
-                        NavigationBarItem(
-                            icon = { 
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.title
+                // Chỉ hiện bottom nav khi không ở màn hình Staff Management
+                if (!currentScreen.startsWith("STAFF")) {
+                    NavigationBar(
+                        containerColor = Color.White,
+                        contentColor = CrudColors.Primary,
+                        tonalElevation = 0.dp
+                    ) {
+                        bottomNavItems.forEach { item ->
+                            val selected = currentScreen == item.route ||
+                                    (item.route == "LIST" && (currentScreen == "FORM" || currentScreen == "DETAIL"))
+
+                            NavigationBarItem(
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.title
+                                    )
+                                },
+                                label = { Text(item.title) },
+                                selected = selected,
+                                onClick = {
+                                    currentScreen = item.route
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = CrudColors.Primary,
+                                    selectedTextColor = CrudColors.Primary,
+                                    indicatorColor = Color(0xFFE8F5E9),
+                                    unselectedIconColor = Color(0xFF374151),
+                                    unselectedTextColor = Color(0xFF6B7280)
                                 )
-                            },
-                            label = { Text(item.title) },
-                            selected = selected,
-                            onClick = {
-                                currentScreen = item.route
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = CrudColors.Primary,      // Xanh olive khi selected
-                                selectedTextColor = CrudColors.Primary,      // Xanh olive khi selected
-                                indicatorColor = Color(0xFFE8F5E9),         // Light green background
-                                unselectedIconColor = Color(0xFF374151),    // Đen xám đậm (thay vì xám nhạt)
-                                unselectedTextColor = Color(0xFF6B7280)     // Xám trung bình
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -226,24 +207,108 @@ fun MainScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                color = Color.White  // Force white background
+                color = Color.White
             ) {
-                AppContent(
-                    currentScreen = currentScreen,
-                    onScreenChange = { newScreen -> currentScreen = newScreen },
-                    productViewModel = productViewModel,
-                    categoryViewModel = categoryViewModel,
-                    supplierViewModel = supplierViewModel,
-                    onMenuClick = {
-                        scope.launch {
-                            if (drawerState.isClosed) {
-                                drawerState.open()
-                            } else {
-                                drawerState.close()
+                // Staff Management Screens
+                when {
+                    currentScreen == "STAFF_LIST" -> {
+                        StaffManagementListScreen(
+                            isAdmin = currentUser.role == "ADMIN",
+                            viewModel = staffViewModel,
+                            onAddStaff = {
+                                showAddStaffForm = true
+                                currentScreen = "STAFF_FORM_ADD"
+                            },
+                            onOpenStaff = { staff ->
+                                selectedStaff = staff
+                                currentScreen = "STAFF_DETAIL"
                             }
-                        }
+                        )
                     }
-                )
+
+                    currentScreen == "STAFF_FORM_ADD" -> {
+                        val uiState by staffViewModel.uiState.collectAsStateWithLifecycle()
+                        StaffManagementFormScreen(
+                            staff = null,
+                            isLoading = uiState.isLoading,
+                            onBack = {
+                                currentScreen = "STAFF_LIST"
+                                showAddStaffForm = false
+                            },
+                            onSave = { fullName, email, phone, password, role ->
+                                staffViewModel.addStaff(fullName, email, phone, password, role)
+                                currentScreen = "STAFF_LIST"
+                                showAddStaffForm = false
+                            }
+                        )
+                    }
+
+                    currentScreen == "STAFF_FORM_EDIT" && selectedStaff != null -> {
+                        val uiState by staffViewModel.uiState.collectAsStateWithLifecycle()
+                        StaffManagementFormScreen(
+                            staff = selectedStaff,
+                            isLoading = uiState.isLoading,
+                            onBack = {
+                                currentScreen = "STAFF_DETAIL"
+                                showEditStaffForm = false
+                            },
+                            onSave = { fullName, email, phone, _, role ->
+                                val updated = selectedStaff!!.copy(
+                                    fullName = fullName,
+                                    email = email,
+                                    phone = phone,
+                                    role = role
+                                )
+                                staffViewModel.updateStaff(updated)
+                                selectedStaff = updated
+                                currentScreen = "STAFF_DETAIL"
+                                showEditStaffForm = false
+                            }
+                        )
+                    }
+
+                    currentScreen == "STAFF_DETAIL" && selectedStaff != null -> {
+                        val uiState by staffViewModel.uiState.collectAsStateWithLifecycle()
+                        val latestStaff = uiState.staff.find { it.id == selectedStaff!!.id }
+                            ?: selectedStaff!!
+
+                        StaffManagementDetailScreen(
+                            staff = latestStaff,
+                            isAdmin = currentUser.role == "ADMIN",
+                            onBack = {
+                                selectedStaff = null
+                                currentScreen = "STAFF_LIST"
+                            },
+                            onEdit = {
+                                showEditStaffForm = true
+                                currentScreen = "STAFF_FORM_EDIT"
+                            },
+                            onToggleActive = {
+                                staffViewModel.toggleActive(latestStaff)
+                            }
+                        )
+                    }
+
+                    // Products/Categories/Suppliers Screens
+                    else -> {
+                        AppContent(
+                            currentScreen = currentScreen,
+                            onScreenChange = { newScreen -> currentScreen = newScreen },
+                            productViewModel = productViewModel,
+                            categoryViewModel = categoryViewModel,
+                            supplierViewModel = supplierViewModel,
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) {
+                                        drawerState.open()
+                                    } else {
+                                        drawerState.close()
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -558,24 +623,5 @@ fun AppContent(
                 }
             }
         )
-    }
-}
-
-/**
- * Get screen title for top bar
- */
-private fun getScreenTitle(route: String): String {
-    return when (route) {
-        "LIST" -> "Danh sách sản phẩm"
-        "FORM" -> "Thêm/Sửa sản phẩm"
-        "DETAIL" -> "Chi tiết sản phẩm"
-        "SCANNER" -> "Quét mã vạch"
-        "CATEGORIES" -> "Danh sách danh mục"
-        "CATEGORY_DETAIL" -> "Chi tiết danh mục"
-        "CATEGORY_FORM" -> "Thêm/Sửa danh mục"
-        "SUPPLIERS" -> "Nhà cung cấp"
-        "SUPPLIER_DETAIL" -> "Chi tiết NCC"
-        "SUPPLIER_FORM" -> "Thêm/Sửa NCC"
-        else -> "Smart Inventory"
     }
 }

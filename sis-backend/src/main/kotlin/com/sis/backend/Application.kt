@@ -2,10 +2,25 @@
 package com.sis.backend
 
 import com.sis.backend.config.DatabaseConfig
+import com.sis.backend.config.configureStatusPages
 import com.sis.backend.controller.CategoryController
+import com.sis.backend.controller.ProductController
+import com.sis.backend.controller.SupplierController
+import com.sis.backend.controller.InventoryController
 import com.sis.backend.repository.CategoryRepository
-import com.sis.backend.routes.categoryRoutes
+import com.sis.backend.repository.ProductRepository
+import com.sis.backend.repository.SupplierRepository
+import com.sis.backend.repository.InventoryRepository
+import com.sis.backend.repository.WarehouseRepository
 import com.sis.backend.service.CategoryService
+import com.sis.backend.service.ProductService
+import com.sis.backend.service.SupplierService
+import com.sis.backend.service.InventoryService
+import com.sis.backend.routes.categoryRoutes
+import com.sis.backend.routes.productRoutes
+import com.sis.backend.routes.supplierRoutes
+import com.sis.backend.routes.inventoryRoutes
+import com.sis.backend.routes.authRoutes
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -16,25 +31,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import java.sql.Connection
 import javax.sql.DataSource
-import com.sis.backend.controller.ProductController
-import com.sis.backend.repository.ProductRepository
-import com.sis.backend.routes.productRoutes
-import com.sis.backend.service.ProductService
-import com.sis.backend.repository.SupplierRepository
-import com.sis.backend.service.SupplierService
-import com.sis.backend.controller.SupplierController
-import com.sis.backend.routes.supplierRoutes
-import com.sis.backend.repository.InventoryRepository
-import com.sis.backend.repository.WarehouseRepository
-import com.sis.backend.service.InventoryService
-import com.sis.backend.controller.InventoryController
-import com.sis.backend.routes.inventoryRoutes
-import com.sis.backend.config.configureStatusPages
 
-/*UPDATE
-*import com.sis.backend.repository.InventoryRepository
-*Bổ sung thêm repository InventoryRepository(dataSource)
-* */
 lateinit var dataSource: DataSource
     private set
 
@@ -101,8 +98,10 @@ fun Application.module() {
             }
         }
 
-        // CRUD danh mục - Task 9
+        // Authentication & Authorization Routes (UC01-UC07)
+        authRoutes(dataSource)
 
+        // Category CRUD Routes
         categoryRoutes(
             CategoryController(
                 CategoryService(
@@ -111,8 +110,7 @@ fun Application.module() {
             )
         )
 
-
-        // CRUD sản phẩm - Task 10
+        // Product CRUD Routes
         productRoutes(
             productController = ProductController(
                 ProductService(
@@ -125,8 +123,7 @@ fun Application.module() {
             supplierRepository = SupplierRepository(dataSource)
         )
 
-        //CRUD supplier
-
+        // Supplier CRUD Routes
         supplierRoutes(
             SupplierController(
                 SupplierService(
@@ -135,8 +132,7 @@ fun Application.module() {
             )
         )
 
-        // CRUD inventory
-
+        // Inventory Routes
         inventoryRoutes(
             inventoryController = InventoryController(
                 InventoryService(
@@ -149,3 +145,4 @@ fun Application.module() {
         )
     }
 }
+
