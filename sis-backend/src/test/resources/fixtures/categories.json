@@ -1,0 +1,26 @@
+[
+  {
+    "categoryId": 1,
+    "categoryName": "Electronics",
+    "description": "Electronic products and gadgets",
+    "isActive": true
+  },
+  {
+    "categoryId": 2,
+    "categoryName": "Clothing",
+    "description": "Apparel and fashion items",
+    "isActive": true
+  },
+  {
+    "categoryId": 3,
+    "categoryName": "Food",
+    "description": "Food and beverages",
+    "isActive": true
+  },
+  {
+    "categoryId": 4,
+    "categoryName": "Books",
+    "description": "Books and publications",
+    "isActive": true
+  }
+]

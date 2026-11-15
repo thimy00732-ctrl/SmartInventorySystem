@@ -1,0 +1,23 @@
+[
+  {
+    "supplierId": 1,
+    "supplierName": "ABC Supplier",
+    "phone": "0123456789",
+    "email": "abc@supplier.com",
+    "address": "123 ABC Street, City"
+  },
+  {
+    "supplierId": 2,
+    "supplierName": "XYZ Trading",
+    "phone": "0987654321",
+    "email": "xyz@trading.com",
+    "address": "456 XYZ Avenue, City"
+  },
+  {
+    "supplierId": 3,
+    "supplierName": "Global Imports",
+    "phone": "0555666777",
+    "email": "info@globalimports.com",
+    "address": "789 Global Road, City"
+  }
+]

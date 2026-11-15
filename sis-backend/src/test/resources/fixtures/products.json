@@ -1,0 +1,38 @@
+[
+  {
+    "sku": "FIXTURE-PROD-001",
+    "barcode": "1234567890001",
+    "productName": "Fixture Product 1",
+    "categoryId": 1,
+    "supplierId": 1,
+    "unit": "pcs",
+    "costPrice": 10.00,
+    "salePrice": 15.00,
+    "minStock": 5,
+    "maxStock": 100
+  },
+  {
+    "sku": "FIXTURE-PROD-002",
+    "barcode": "1234567890002",
+    "productName": "Fixture Product 2",
+    "categoryId": 2,
+    "supplierId": 2,
+    "unit": "box",
+    "costPrice": 50.00,
+    "salePrice": 75.00,
+    "minStock": 10,
+    "maxStock": 500
+  },
+  {
+    "sku": "FIXTURE-PROD-003",
+    "barcode": "1234567890003",
+    "productName": "Fixture Product 3",
+    "categoryId": 1,
+    "supplierId": 3,
+    "unit": "kg",
+    "costPrice": 100.00,
+    "salePrice": 150.00,
+    "minStock": 20,
+    "maxStock": 1000
+  }
+]

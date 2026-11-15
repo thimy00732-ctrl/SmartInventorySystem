@@ -1,0 +1,23 @@
+[
+  {
+    "email": "admin@test.com",
+    "password": "Password123",
+    "full_name": "Test Admin User",
+    "phone": "0123456789",
+    "role": "ADMIN"
+  },
+  {
+    "email": "staff@test.com",
+    "password": "Password123",
+    "full_name": "Test Warehouse Staff",
+    "phone": "0987654321",
+    "role": "WAREHOUSE_STAFF"
+  },
+  {
+    "email": "manager@test.com",
+    "password": "Password123",
+    "full_name": "Test Warehouse Manager",
+    "phone": "0555666777",
+    "role": "WAREHOUSE_STAFF"
+  }
+]
