@@ -4,14 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sis.android.data.model.Product
 import com.sis.android.data.model.Category
@@ -32,6 +36,7 @@ import com.sis.android.ui.theme.SISTheme
 import com.sis.android.ui.viewmodel.ProductViewModel
 import com.sis.android.ui.viewmodel.CategoryViewModel
 import com.sis.android.ui.viewmodel.SupplierViewModel
+import com.sis.android.ui.theme.color.CrudColors
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -111,40 +116,13 @@ fun MainScreen() {
         }
     ) {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { 
-                        Text(
-                            text = getScreenTitle(currentScreen),
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    if (drawerState.isClosed) {
-                                        drawerState.open()
-                                    } else {
-                                        drawerState.close()
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menu"
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-            },
+            containerColor = Color.White,  // Force white
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = Color.White,
+                    contentColor = CrudColors.Primary,
+                    tonalElevation = 0.dp  // Bỏ shadow/tint
+                ) {
                     bottomNavItems.forEach { item ->
                         val selected = currentScreen == item.route ||
                             (item.route == "LIST" && (currentScreen == "FORM" || currentScreen == "DETAIL"))
@@ -160,7 +138,14 @@ fun MainScreen() {
                             selected = selected,
                             onClick = {
                                 currentScreen = item.route
-                            }
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = CrudColors.Primary,      // Xanh olive khi selected
+                                selectedTextColor = CrudColors.Primary,      // Xanh olive khi selected
+                                indicatorColor = Color(0xFFE8F5E9),         // Light green background
+                                unselectedIconColor = Color(0xFF374151),    // Đen xám đậm (thay vì xám nhạt)
+                                unselectedTextColor = Color(0xFF6B7280)     // Xám trung bình
+                            )
                         )
                     }
                 }
@@ -170,14 +155,23 @@ fun MainScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                color = MaterialTheme.colorScheme.background
+                color = Color.White  // Force white background
             ) {
                 AppContent(
                     currentScreen = currentScreen,
                     onScreenChange = { newScreen -> currentScreen = newScreen },
                     productViewModel = productViewModel,
                     categoryViewModel = categoryViewModel,
-                    supplierViewModel = supplierViewModel
+                    supplierViewModel = supplierViewModel,
+                    onMenuClick = {
+                        scope.launch {
+                            if (drawerState.isClosed) {
+                                drawerState.open()
+                            } else {
+                                drawerState.close()
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -190,7 +184,8 @@ fun AppContent(
     onScreenChange: (String) -> Unit,
     productViewModel: ProductViewModel,
     categoryViewModel: CategoryViewModel,
-    supplierViewModel: SupplierViewModel
+    supplierViewModel: SupplierViewModel,
+    onMenuClick: () -> Unit
 ) {
     val categories by categoryViewModel.categoryList.collectAsState()
 
@@ -225,7 +220,8 @@ fun AppContent(
                 },
                 onScanClick = {
                     onScreenChange("SCANNER")
-                }
+                },
+                onMenuClick = onMenuClick
             )
         }
 
@@ -335,7 +331,8 @@ fun AppContent(
                 onAddClick = {
                     categoryToEdit = null
                     onScreenChange("CATEGORY_FORM")
-                }
+                },
+                onMenuClick = onMenuClick
             )
         }
 
@@ -411,7 +408,8 @@ fun AppContent(
                 onAddClick = {
                     supplierToEdit = null
                     onScreenChange("SUPPLIER_FORM")
-                }
+                },
+                onMenuClick = onMenuClick
             )
         }
 

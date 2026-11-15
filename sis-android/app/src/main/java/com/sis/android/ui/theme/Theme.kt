@@ -11,7 +11,7 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     primaryContainer = Color(0xFFE3EDD5),
     onPrimaryContainer = CrudColors.Primary,
-    background = CrudColors.LightGreenBg,
+    background = Color.White,  // Đổi sang trắng
     surface = Color.White,
     error = CrudColors.DangerAction
 )

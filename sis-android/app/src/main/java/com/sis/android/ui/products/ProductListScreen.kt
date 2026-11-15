@@ -34,7 +34,8 @@ fun ProductListScreen(
     viewModel: ProductViewModel,
     onProductClick: (Product) -> Unit,
     onAddClick: () -> Unit,
-    onScanClick: () -> Unit
+    onScanClick: () -> Unit,
+    onMenuClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -62,8 +63,9 @@ fun ProductListScreen(
             val selectedWarehouseName by viewModel.selectedWarehouseName.collectAsState()
 
             AppHeader(
-                title = if (selectedWarehouseName != null) "📦 $selectedWarehouseName" else "Kho hàng",
-                subtitle = if (selectedWarehouseName != null) "Xem sản phẩm theo kho" else "Theo dõi sản phẩm và tồn kho",
+                title = if (selectedWarehouseName != null) "📦 $selectedWarehouseName" else "Sản phẩm",
+                subtitle = if (selectedWarehouseName != null) "Xem sản phẩm theo kho" else "Danh sách sản phẩm trong kho",
+                onMenu = onMenuClick,
                 actions = {
                     IconButton(
                         onClick = onAddClick,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -27,6 +28,7 @@ fun AppHeader(
     title: String,
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
+    onMenu: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     Box(
@@ -43,10 +45,18 @@ fun AppHeader(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (onBack != null) {
+            // Menu icon (3 gạch) - hiển thị nếu có onMenu và không có onBack
+            if (onMenu != null && onBack == null) {
+                HeaderIconButton(Icons.Default.Menu, "Menu", onMenu)
+                Spacer(Modifier.width(12.dp))
+            }
+            // Back button - hiển thị nếu có onBack
+            else if (onBack != null) {
                 HeaderIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", onBack)
                 Spacer(Modifier.width(12.dp))
-            } else {
+            } 
+            // Nếu không có cả 2, thêm padding để title không sát mép
+            else {
                 Spacer(Modifier.width(8.dp))
             }
 

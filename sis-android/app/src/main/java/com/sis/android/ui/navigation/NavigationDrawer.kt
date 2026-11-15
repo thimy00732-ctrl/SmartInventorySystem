@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sis.android.data.model.User
+import com.sis.android.ui.theme.color.CrudColors
 
 /**
  * Navigation Drawer với expandable sections
@@ -71,7 +72,7 @@ fun AppNavigationDrawer(
 
     ModalDrawerSheet(
         modifier = modifier.fillMaxHeight(),
-        drawerContainerColor = MaterialTheme.colorScheme.surface
+        drawerContainerColor = Color(0xFFFAFAFA) // Light gray background
     ) {
         // Header - User info
         DrawerHeader(currentUser = currentUser)
@@ -120,22 +121,20 @@ fun AppNavigationDrawer(
 
 @Composable
 private fun DrawerHeader(currentUser: User?) {
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(12.dp)
+            .background(CrudColors.HeaderBrush) // Gradient xanh olive
+            .padding(horizontal = 16.dp, vertical = 20.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Avatar
             Surface(
                 modifier = Modifier.size(56.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary
+                color = Color(0xFF1E4620) // Xanh đậm hơn
             ) {
                 Box(
                     contentAlignment = Alignment.Center
@@ -143,7 +142,7 @@ private fun DrawerHeader(currentUser: User?) {
                     Text(
                         text = currentUser?.fullName?.firstOrNull()?.uppercase() ?: "U",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -157,7 +156,7 @@ private fun DrawerHeader(currentUser: User?) {
                     text = currentUser?.fullName ?: "Guest User",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = Color.White
                 )
                 
                 Text(
@@ -168,7 +167,7 @@ private fun DrawerHeader(currentUser: User?) {
                         else -> "Chưa đăng nhập"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
@@ -197,7 +196,7 @@ private fun ExpandableNavigationItem(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
             color = if (isExpanded) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                Color(0xFFE8F5E9) // Light green background
             } else {
                 Color.Transparent
             }
@@ -214,9 +213,9 @@ private fun ExpandableNavigationItem(
                     contentDescription = item.title,
                     modifier = Modifier.size(24.dp),
                     tint = if (isExpanded) {
-                        MaterialTheme.colorScheme.primary
+                        CrudColors.Primary // Xanh olive
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        Color(0xFF6B7280) // Gray
                     }
                 )
                 
@@ -227,9 +226,9 @@ private fun ExpandableNavigationItem(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = if (isExpanded) FontWeight.SemiBold else FontWeight.Medium,
                     color = if (isExpanded) {
-                        MaterialTheme.colorScheme.primary
+                        CrudColors.Primary // Xanh olive
                     } else {
-                        MaterialTheme.colorScheme.onSurface
+                        CrudColors.TextPrimary // Dark gray
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -287,7 +286,7 @@ private fun DirectNavigationItem(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         shape = RoundedCornerShape(8.dp),
         color = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer
+            Color(0xFFE8F5E9) // Light green
         } else {
             Color.Transparent
         }
@@ -304,9 +303,9 @@ private fun DirectNavigationItem(
                 contentDescription = item.title,
                 modifier = Modifier.size(24.dp),
                 tint = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
+                    CrudColors.Primary
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    Color(0xFF6B7280)
                 }
             )
             
@@ -317,9 +316,9 @@ private fun DirectNavigationItem(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                 color = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
+                    CrudColors.Primary
                 } else {
-                    MaterialTheme.colorScheme.onSurface
+                    CrudColors.TextPrimary
                 },
                 modifier = Modifier.weight(1f)
             )
@@ -343,7 +342,7 @@ private fun ChildNavigationItem(
             .padding(vertical = 2.dp),
         shape = RoundedCornerShape(8.dp),
         color = if (isSelected) {
-            MaterialTheme.colorScheme.secondaryContainer
+            Color(0xFFF1F8F4) // Very light green
         } else {
             Color.Transparent
         }
@@ -362,9 +361,9 @@ private fun ChildNavigationItem(
                     .clip(CircleShape)
                     .background(
                         if (isSelected) {
-                            MaterialTheme.colorScheme.primary
+                            CrudColors.Primary
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            Color(0xFFBBBBBB)
                         }
                     )
             )
@@ -376,9 +375,9 @@ private fun ChildNavigationItem(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                 color = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
+                    CrudColors.Primary
                 } else {
-                    MaterialTheme.colorScheme.onSurface
+                    CrudColors.TextPrimary
                 },
                 modifier = Modifier.weight(1f)
             )
@@ -444,7 +443,7 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
             title = "Dashboard",
             icon = Icons.Default.Dashboard,
             route = "dashboard",
-            badge = BadgeInfo(count = 5, color = Color(0xFF1976D2))
+            badge = BadgeInfo(count = 5, color = CrudColors.Primary) // Xanh olive
         ),
         
         // 2. Sản phẩm & Danh mục (3 items)
@@ -476,13 +475,13 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
             id = "inventory",
             title = "Quản lý tồn kho",
             icon = Icons.Default.Inventory,
-            badge = BadgeInfo(text = "NEW", color = Color(0xFF43A047)),
+            badge = BadgeInfo(text = "NEW", color = CrudColors.OkText), // Xanh lá
             children = listOf(
                 NavigationChild(
                     id = "stock_overview",
                     title = "Tổng quan tồn kho",
                     route = "inventory/overview",
-                    badge = BadgeInfo(count = 3, color = Color(0xFFE53935))
+                    badge = BadgeInfo(count = 3, color = CrudColors.DangerAction) // Đỏ warning
                 ),
                 NavigationChild(
                     id = "stock_by_location",
@@ -493,7 +492,7 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
                     id = "stock_alerts",
                     title = "Cảnh báo tồn kho",
                     route = "inventory/alerts",
-                    badge = BadgeInfo(count = 12, color = Color(0xFFFB8C00))
+                    badge = BadgeInfo(count = 12, color = CrudColors.WarnText) // Cam warning
                 ),
                 NavigationChild(
                     id = "stock_movements",

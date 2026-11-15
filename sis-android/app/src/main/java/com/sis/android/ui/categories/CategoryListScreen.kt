@@ -31,7 +31,8 @@ import com.sis.android.ui.components.form.ChipRow
 fun CategoryListScreen(
     viewModel: CategoryViewModel,
     onCategoryClick: (Category) -> Unit,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onMenuClick: (() -> Unit)? = null
 ) {
     val categoryList by viewModel.categoryList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -97,7 +98,8 @@ fun CategoryListScreen(
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             AppHeader(
                 title = "Danh mục sản phẩm",
-                subtitle = "Quản lý danh mục và phân loại"
+                subtitle = "Quản lý danh mục và phân loại",
+                onMenu = onMenuClick
             )
 
             Column(

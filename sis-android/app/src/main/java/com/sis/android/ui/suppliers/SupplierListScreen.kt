@@ -32,7 +32,8 @@ import com.sis.android.ui.components.form.ChipRow
 fun SupplierListScreen(
     viewModel: SupplierViewModel,
     onSupplierClick: (Supplier) -> Unit,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onMenuClick: (() -> Unit)? = null
 ) {
     val supplierList by viewModel.supplierList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -98,7 +99,8 @@ fun SupplierListScreen(
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             AppHeader(
                 title = "Nhà cung cấp",
-                subtitle = "Quản lý đối tác và nguồn hàng"
+                subtitle = "Quản lý đối tác và nguồn hàng",
+                onMenu = onMenuClick
             )
 
 
