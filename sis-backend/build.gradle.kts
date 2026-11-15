@@ -39,8 +39,14 @@ dependencies {
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.3.1")
+    testImplementation("io.ktor:ktor-client-core:3.3.1")
+    testImplementation("io.ktor:ktor-client-cio:3.3.1")
     testImplementation("io.mockk:mockk:1.14.5")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testImplementation("org.assertj:assertj-core:3.24.1")
+    testImplementation("com.h2database:h2:2.2.220")
+    testImplementation("org.hamcrest:hamcrest:2.2")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.15.2")
 }
 
 kotlin {
@@ -58,4 +64,34 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+
+// ==================== TEST CONFIGURATION ====================
+
+// Task chạy chỉ unit tests
+tasks.register<Test>("unitTest") {
+    useJUnitPlatform {
+        includeTags("unit")
+    }
+    description = "Run only unit tests"
+}
+
+// Task chạy chỉ integration tests
+tasks.register<Test>("integrationTest") {
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    description = "Run only integration tests"
+    shouldRunAfter("unitTest")
+}
+
+
+// Test configuration
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
