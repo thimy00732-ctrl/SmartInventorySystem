@@ -37,8 +37,8 @@ class AuthService(
             ?: throw Exception("Email hoặc mật khẩu không chính xác")
 
         // Bước 2: Kiểm tra mật khẩu
-        // So sánh plaintext (vì password trong DB là plaintext)
-        val isPasswordValid = request.password == user.password_hash
+        // Dùng PasswordService.verifyPassword() để xác minh mật khẩu
+        val isPasswordValid = PasswordService.verifyPassword(request.password, user.password_hash)
         if (!isPasswordValid) {
             throw Exception("Email hoặc mật khẩu không chính xác")
         }
@@ -122,8 +122,8 @@ class AuthService(
             throw Exception(passwordError)
         }
 
-        // Bước 4: Lưu mật khẩu (plaintext, không mã hóa)
-        val passwordHash = request.password
+        // Bước 4: Mã hóa mật khẩu bằng BCrypt trước khi lưu
+        val passwordHash = PasswordService.hashPassword(request.password)
 
         // Bước 5: Tạo user object
         val newUser = User(
@@ -257,8 +257,9 @@ class AuthService(
         val user = userRepository.findById(userId)
             ?: throw Exception("Người dùng không tồn tại")
 
-        // Bước 2: Kiểm tra mật khẩu cũ (plaintext comparison vì DB lưu plaintext)
-        val isOldPasswordValid = request.old_password == user.password_hash
+        // Bước 2: Kiểm tra mật khẩu cũ
+        // Dùng PasswordService.verifyPassword() để xác minh an toàn
+        val isOldPasswordValid = PasswordService.verifyPassword(request.old_password, user.password_hash)
         if (!isOldPasswordValid) {
             throw Exception("Mật khẩu cũ không chính xác")
         }
@@ -270,12 +271,12 @@ class AuthService(
         }
 
         // Bước 4: Kiểm tra mật khẩu mới khác mật khẩu cũ
-        if (request.new_password == user.password_hash) {
+        if (request.new_password == request.old_password) {
             throw Exception("Mật khẩu mới phải khác mật khẩu cũ")
         }
 
-        // Bước 5: Mã hóa mật khẩu mới (sử dụng plaintext lưu vào DB cho testing)
-        val newPasswordHash = request.new_password
+        // Bước 5: Mã hóa mật khẩu mới bằng BCrypt trước khi lưu
+        val newPasswordHash = PasswordService.hashPassword(request.new_password)
 
         // Bước 6: Cập nhật database
         val updated = userRepository.updatePassword(userId, newPasswordHash)
