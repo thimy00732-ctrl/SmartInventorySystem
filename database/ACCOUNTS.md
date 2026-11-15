@@ -8,7 +8,14 @@
 - **Role**: ADMIN
 - **Quyền**: Toàn bộ chức năng (111 UC)
 
-### 2. Staff
+### 2. Minh Châu Admin
+- **Email**: `minhchauadmin@warehouse.vn`
+- **Password**: `admin123`
+- **Tên**: Minh Châu
+- **Role**: ADMIN
+- **Quyền**: Toàn bộ chức năng (111 UC)
+
+### 3. Staff
 - **Email**: `staff@warehouse.vn`
 - **Password**: `staff123`
 - **Role**: WAREHOUSE_STAFF

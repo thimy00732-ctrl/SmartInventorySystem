@@ -30,7 +30,7 @@ VALUES (
 INSERT INTO users (email, password_hash, full_name, phone, role, status, created_at, updated_at)
 VALUES (
     'staff@warehouse.vn',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    '$2a$10$Ie0B15M3gZxIAi49kxmmC.RAuxyJ31tdA4XQ1cFtAH9M60NfVLeW.',
     'Trần Thị Nhân Viên',
     '0907654321',
     'WAREHOUSE_STAFF',
