@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sis.android.data.model.Product
+import com.sis.android.ui.inventory.InventoryModuleHost
 import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
 import com.sis.android.ui.products.ProductFormScreen
@@ -18,6 +19,11 @@ import com.sis.android.ui.viewmodel.ProductViewModel
 import com.sis.android.ui.viewmodel.CategoryViewModel
 import androidx.activity.enableEdgeToEdge
 
+/*
+ * Activity chính của ứng dụng Android.
+ * File này điều khiển màn hình đang hiển thị và lựa chọn màn hình mặc định
+ * để test các module đang phát triển như quản lý tồn kho trong giai đoạn đầu.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,12 +49,17 @@ class MainActivity : ComponentActivity() {
 
                     var isSaving by remember { mutableStateOf(false) }
                     var formError by remember { mutableStateOf<String?>(null) }
-                    var currentScreen by remember { mutableStateOf("LIST") }
+                    var currentScreen by remember { mutableStateOf("INVENTORY_LIST") }
                     var selectedProduct by remember { mutableStateOf<Product?>(null) }
                     var productToEdit by remember { mutableStateOf<Product?>(null) }
                     var notFoundBarcode by remember { mutableStateOf<String?>(null) }
 
                     when (currentScreen) {
+                        "INVENTORY_LIST" -> {
+                            InventoryModuleHost(
+                                onGoToProducts = { currentScreen = "LIST" }
+                            )
+                        }
                         "LIST" -> {
                             ProductListScreen(
                                 viewModel = viewModel,
