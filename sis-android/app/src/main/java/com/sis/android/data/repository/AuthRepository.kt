@@ -52,7 +52,8 @@ class AuthRepository(
             accessToken = body.accessToken,
             refreshToken = body.refreshToken,
             role = body.role,
-            userId = body.userId
+            userId = body.userId,
+            fullName = body.fullName
         )
         sessionManager.setRememberLogin(rememberLogin)
 

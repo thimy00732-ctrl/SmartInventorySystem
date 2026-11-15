@@ -13,6 +13,7 @@ data class LoginRequest(
 data class LoginResponse(
     val user_id: Int,
     val email: String,
+    val full_name: String?,
     val role: String,
     val access_token: String,
     val refresh_token: String,

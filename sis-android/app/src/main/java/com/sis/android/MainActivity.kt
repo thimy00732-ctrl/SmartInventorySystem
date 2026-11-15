@@ -20,9 +20,7 @@ import com.sis.android.data.model.Product
 import com.sis.android.data.model.Category
 import com.sis.android.data.model.Supplier
 import com.sis.android.data.model.User
-import com.sis.android.data.model.LoginRequest
 import com.sis.android.data.model.ManagedStaff
-import com.sis.android.data.remote.RetrofitInstance
 import com.sis.android.di.AppModule
 import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
@@ -65,15 +63,38 @@ class MainActivity : ComponentActivity() {
         val staffRepository = remember { AppModule.provideStaffRepository() }
 
         // Kiểm tra session đã lưu khi mở app
+        val savedRole = remember { authRepository.getSavedRole() }
+        val savedUserId = remember { sessionManager.getUserId() }
+        val savedFullName = remember { sessionManager.getFullName() }
+        
         var currentUser by remember {
-            mutableStateOf(authRepository.getSavedUser())
+            mutableStateOf<User?>(
+                if (savedRole != null && savedUserId > 0) {
+                    User(
+                        user_id = savedUserId,
+                        fullName = savedFullName ?: "User",
+                        email = authRepository.getRememberedEmail(),
+                        role = savedRole,
+                        is_active = true
+                    )
+                } else {
+                    null
+                }
+            )
         }
 
         if (currentUser == null) {
             // Chưa đăng nhập → hiện màn hình Login
             LoginScreen(
-                onLoginSuccess = { user ->
-                    currentUser = user
+                onLoginSuccess = { role ->
+                    // Tạo User object từ session sau khi login thành công
+                    currentUser = User(
+                        user_id = sessionManager.getUserId(),
+                        fullName = sessionManager.getFullName() ?: "User",
+                        email = authRepository.getRememberedEmail(),
+                        role = role,
+                        is_active = true
+                    )
                 }
             )
         } else {
@@ -81,11 +102,7 @@ class MainActivity : ComponentActivity() {
             MainScreen(
                 currentUser = currentUser!!,
                 sessionManager = sessionManager,
-                staffRepository = staffRepository,
-                onLogout = {
-                    authRepository.clearSession()
-                    currentUser = null
-                }
+                staffRepository = staffRepository
             )
         }
     }
@@ -105,22 +122,20 @@ sealed class BottomNavItem(
     object Scanner : BottomNavItem("SCANNER", "Quét", Icons.Default.QrCodeScanner)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     currentUser: User,
     sessionManager: com.sis.android.data.session.SessionManager,
-    staffRepository: com.sis.android.data.repository.StaffManagementRepository,
-    onLogout: () -> Unit
+    staffRepository: com.sis.android.data.repository.StaffManagementRepository
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     // ViewModels
-    val productViewModel: ProductViewModel = viewModel()
-    val categoryViewModel: CategoryViewModel = viewModel()
-    val supplierViewModel: SupplierViewModel = viewModel()
-    val staffViewModel: StaffManagementViewModel = viewModel(
+    val productViewModel: ProductViewModel = viewModel<ProductViewModel>()
+    val categoryViewModel: CategoryViewModel = viewModel<CategoryViewModel>()
+    val supplierViewModel: SupplierViewModel = viewModel<SupplierViewModel>()
+    val staffViewModel: StaffManagementViewModel = viewModel<StaffManagementViewModel>(
         factory = StaffManagementViewModel.Factory(
             repository = staffRepository,
             sessionManager = sessionManager
@@ -159,8 +174,7 @@ fun MainScreen(
                     scope.launch {
                         drawerState.close()
                     }
-                },
-                onLogout = onLogout
+                }
             )
         }
     ) {

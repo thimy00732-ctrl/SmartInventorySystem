@@ -14,6 +14,7 @@ class SessionManager(context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_ROLE = "role"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_FULL_NAME = "full_name"
         private const val KEY_EMAIL = "remembered_email"
         private const val KEY_REMEMBER = "remember_login"
         private const val KEY_EXPIRY = "login_expiry"
@@ -26,13 +27,15 @@ class SessionManager(context: Context) {
         accessToken: String,
         refreshToken: String,
         role: String,
-        userId: Int
+        userId: Int,
+        fullName: String? = null
     ) {
         preferences.edit()
             .putString(KEY_ACCESS_TOKEN, accessToken)
             .putString(KEY_REFRESH_TOKEN, refreshToken)
             .putString(KEY_ROLE, role)
             .putInt(KEY_USER_ID, userId)
+            .putString(KEY_FULL_NAME, fullName)
             .apply()
     }
 
@@ -43,6 +46,8 @@ class SessionManager(context: Context) {
     fun getRefreshToken(): String? = preferences.getString(KEY_REFRESH_TOKEN, null)
 
     fun getRole(): String? = preferences.getString(KEY_ROLE, null)
+
+    fun getFullName(): String? = preferences.getString(KEY_FULL_NAME, null)
 
     fun getUserId(): Int = preferences.getInt(KEY_USER_ID, -1)
 

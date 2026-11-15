@@ -46,6 +46,7 @@ fun Route.authRoutes(dataSource: DataSource) {
          * {
          *   "user_id": 1,
          *   "email": "user@example.com",
+         *   "full_name": "Minh Châu",
          *   "role": "ADMIN",
          *   "access_token": "eyJhbGc...",
          *   "refresh_token": "eyJhbGc...",

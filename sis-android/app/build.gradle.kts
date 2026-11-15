@@ -46,9 +46,7 @@ android {
         freeCompilerArgs += "-opt-in=androidx.camera.core.ExperimentalGetImage"
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Không cần composeOptions với Kotlin 2.0+ vì Compose Compiler đã tích hợp trong plugin
 
     packaging {
         resources {
