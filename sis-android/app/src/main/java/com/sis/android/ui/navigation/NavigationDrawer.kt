@@ -553,13 +553,12 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
     val isStaff = userRole == "WAREHOUSE_STAFF"
     
     val allItems = listOf(
-        // 1. Dashboard (UC89 - Cả hai role, nhưng staff không thấy giá trị tồn kho)
+        // 1. Dashboard (UC89 - Sprint 3)
         NavigationItem(
             id = "dashboard",
             title = "Tổng quan",
             icon = Icons.Default.Dashboard,
-            route = "dashboard",
-            badge = BadgeInfo(count = 5, color = CrudColors.Primary)
+            route = "dashboard"
         ),
         
         // 2. Sản phẩm & Danh mục
@@ -600,7 +599,23 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
             id = "suppliers",
             title = "Nhà cung cấp",
             icon = Icons.Default.Business,
-            route = "suppliers"
+            children = buildList {
+                // UC24: Xem danh sách nhà cung cấp - Cả hai role
+                add(NavigationChild(
+                    id = "suppliers_list",
+                    title = "Danh sách nhà cung cấp",
+                    route = "suppliers"
+                ))
+                
+                // UC23: Thêm nhà cung cấp - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "suppliers_add",
+                        title = "Thêm nhà cung cấp",
+                        route = "suppliers/add"
+                    ))
+                }
+            }
         ),
         
         // 4. Quản lý tồn kho

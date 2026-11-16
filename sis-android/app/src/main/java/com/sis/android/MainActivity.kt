@@ -240,6 +240,123 @@ fun MainScreen(
             ) {
                 // Staff Management Screens
                 when {
+                    // Dashboard - Sprint 3 (placeholder)
+                    currentScreen == "dashboard" -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = "Tổng quan",
+                            description = "Chức năng tổng quan sẽ được phát triển trong Sprint 3",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    // Placeholder screens for unimplemented features
+                    currentScreen.startsWith("inventory/") -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = when (currentScreen) {
+                                "inventory/overview" -> "Tổng quan tồn kho"
+                                "inventory/by-location" -> "Tồn kho theo vị trí"
+                                "inventory/alerts" -> "Cảnh báo tồn kho"
+                                "inventory/movements" -> "Lịch sử xuất nhập"
+                                "inventory/adjustment" -> "Điều chỉnh tồn kho"
+                                else -> "Quản lý tồn kho"
+                            },
+                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    currentScreen.startsWith("receipts/") -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = when (currentScreen) {
+                                "receipts/import" -> "Phiếu nhập kho"
+                                "receipts/export" -> "Phiếu xuất kho"
+                                "receipts/history" -> "Lịch sử phiếu"
+                                else -> "Quản lý phiếu"
+                            },
+                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    currentScreen == "stock-take" -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = "Kiểm kê tồn kho",
+                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    currentScreen == "batches" -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = "Quản lý lô hàng",
+                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    currentScreen == "assistant" -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = "Trợ lý AI",
+                            description = "Chức năng đang được phát triển. Tích hợp AI chatbot đang trong giai đoạn thử nghiệm.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    currentScreen.startsWith("reports/") -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = when (currentScreen) {
+                                "reports/inventory" -> "Báo cáo tồn kho"
+                                "reports/movements" -> "Báo cáo xuất nhập"
+                                "reports/expiry" -> "Báo cáo hàng cận hạn"
+                                "reports/stocktake" -> "Báo cáo kiểm kê"
+                                "reports/value" -> "Báo cáo giá trị tồn kho"
+                                else -> "Báo cáo & Thống kê"
+                            },
+                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
+                    currentScreen.startsWith("settings/") || currentScreen == "warehouses" || currentScreen == "locations" || currentScreen == "parameters" || currentScreen == "audit-log" -> {
+                        com.sis.android.ui.components.PlaceholderScreen(
+                            title = "Quản lý hệ thống",
+                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                        )
+                    }
+                    
                     currentScreen == "STAFF_LIST" -> {
                         StaffManagementListScreen(
                             isAdmin = currentUser.role == "ADMIN",
@@ -375,7 +492,7 @@ fun AppContent(
     var supplierToEdit by remember { mutableStateOf<Supplier?>(null) }
 
     when (currentScreen) {
-        "LIST" -> {
+        "LIST", "products" -> {  // Map "products" từ menu → "LIST"
             ProductListScreen(
                 viewModel = productViewModel,
                 isAdmin = isAdmin,
@@ -393,8 +510,13 @@ fun AppContent(
                 onMenuClick = onMenuClick
             )
         }
-
-        "FORM" -> {
+        
+        "products/add", "FORM" -> {  // Route từ menu hoặc internal state
+            // 🔒 CHỈ ADMIN được thêm/sửa sản phẩm
+            if (!isAdmin && productToEdit == null) {
+                // WAREHOUSE_STAFF cố truy cập thêm sản phẩm → đẩy về danh sách
+                onScreenChange("LIST")
+            } else {
             ProductFormScreen(
                 productToEdit = productToEdit,
                 categories = categories,
@@ -435,6 +557,7 @@ fun AppContent(
                     onScreenChange("LIST")
                 }
             )
+            }  // 🔒 End admin check
         }
 
         "DETAIL" -> {
@@ -491,7 +614,7 @@ fun AppContent(
             )
         }
 
-        "CATEGORIES" -> {
+        "CATEGORIES", "categories" -> {  // Map "categories" từ menu → "CATEGORIES"
             CategoryListScreen(
                 viewModel = categoryViewModel,
                 isAdmin = isAdmin,
@@ -543,6 +666,11 @@ fun AppContent(
         }
 
         "CATEGORY_FORM" -> {
+            // 🔒 CHỈ ADMIN được thêm/sửa danh mục
+            if (!isAdmin && categoryToEdit == null) {
+                // WAREHOUSE_STAFF cố truy cập thêm danh mục → đẩy về danh sách
+                onScreenChange("CATEGORIES")
+            } else {
             CategoryFormScreen(
                 categoryToEdit = categoryToEdit,
                 isSaving = isSaving,
@@ -568,9 +696,10 @@ fun AppContent(
                     onScreenChange(if (categoryToEdit != null) "CATEGORY_DETAIL" else "CATEGORIES")
                 }
             )
+            }  // 🔒 End admin check
         }
 
-        "SUPPLIERS" -> {
+        "SUPPLIERS", "suppliers" -> {  // Map "suppliers" từ menu → "SUPPLIERS"
             SupplierListScreen(
                 viewModel = supplierViewModel,
                 isAdmin = isAdmin,
@@ -621,7 +750,13 @@ fun AppContent(
             }
         }
 
-        "SUPPLIER_FORM" -> {
+        
+        "suppliers/add", "SUPPLIER_FORM" -> {  // Route từ menu hoặc internal state
+            // 🔒 CHỈ ADMIN được thêm/sửa nhà cung cấp
+            if (!isAdmin && supplierToEdit == null) {
+                // WAREHOUSE_STAFF cố truy cập thêm NCC → đẩy về danh sách
+                onScreenChange("SUPPLIERS")
+            } else {
             SupplierFormScreen(
                 supplierToEdit = supplierToEdit,
                 isSaving = isSaving,
@@ -647,6 +782,7 @@ fun AppContent(
                     onScreenChange(if (supplierToEdit != null) "SUPPLIER_DETAIL" else "SUPPLIERS")
                 }
             )
+            }  // 🔒 End admin check
         }
     }
 
