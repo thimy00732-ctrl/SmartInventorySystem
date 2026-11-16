@@ -112,7 +112,11 @@ fun InventoryDetailSheet(
                         .background(CrudColors.LightGreenBg, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Ảnh sản phẩm", color = CrudColors.TextSecondary, fontSize = 12.sp)
+                    InventoryProductThumbnail(
+                        imageUrl = item.imageUrl,
+                        contentDescription = item.productName,
+                        modifier = Modifier.heightIn(min = 72.dp)
+                    )
                 }
                 DetailValue("SKU", item.sku)
                 DetailValue("Mã vạch", productDetails.barcode ?: "Chưa có")

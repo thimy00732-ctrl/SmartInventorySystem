@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -100,29 +101,18 @@ fun InventoryScreen(
     var selectedInventoryId by remember { mutableStateOf<Long?>(null) }
 
     val filteredItems = remember(allItems, keyword, selectedWarehouse, selectedCategory, selectedStatus, sortBy, sortAscending) {
-        val baseItems = allItems.filter { item ->
-            val matchesKeyword = keyword.isBlank() ||
-                item.sku.contains(keyword, ignoreCase = true) ||
-                item.productName.contains(keyword, ignoreCase = true) ||
-                (item.batchCode?.contains(keyword, ignoreCase = true) == true)
-            val matchesWarehouse = selectedWarehouse == "Tất cả kho" || item.warehouseName == selectedWarehouse
-            val matchesCategory = selectedCategory == "Tất cả danh mục"
-            val matchesStatus = when (selectedStatus) {
-                StockStatusFilter.ALL -> true
-                StockStatusFilter.IN_STOCK -> item.stockQuantity > 0
-                StockStatusFilter.OUT -> item.stockQuantity == 0
-                StockStatusFilter.RESERVED -> item.reservedQuantity > 0
-            }
-            matchesKeyword && matchesWarehouse && matchesCategory && matchesStatus
-        }
-
-        val sorted = when (sortBy) {
-            InventorySortBy.PRODUCT_NAME -> baseItems.sortedBy { it.productName }
-            InventorySortBy.STOCK_QUANTITY -> baseItems.sortedBy { it.stockQuantity }
-            InventorySortBy.EXPIRY_DATE -> baseItems.sortedBy { it.expiryDate ?: "9999-12-31" }
-        }
-        if (sortAscending) sorted else sorted.reversed()
+        InventoryListRules.filterAndSort(
+            items = allItems,
+            keyword = keyword,
+            warehouseName = selectedWarehouse,
+            categoryName = selectedCategory,
+            status = selectedStatus,
+            sortBy = sortBy,
+            ascending = sortAscending
+        )
     }
+    val warehouses = allItems.map { it.warehouseName }.distinct().sorted()
+    val categories = allItems.mapNotNull { it.categoryName }.distinct().sorted()
 
     val pageCount = ((filteredItems.size + PAGE_SIZE - 1) / PAGE_SIZE).coerceAtLeast(1)
     if (currentPage > pageCount) currentPage = pageCount
@@ -182,7 +172,7 @@ fun InventoryScreen(
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = CrudColors.TextSecondary) },
-                            placeholder = { Text("Tìm theo SKU, tên sản phẩm...", fontSize = 14.sp) },
+                            placeholder = { Text("Tìm theo SKU, barcode, tên sản phẩm...", fontSize = 14.sp) },
                             shape = CrudStyles.InputShape,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = CrudColors.Primary,
@@ -217,14 +207,14 @@ fun InventoryScreen(
                         InventoryFilterDropdown(
                             label = "Kho",
                             value = selectedWarehouse,
-                            options = listOf("Tất cả kho", "Kho trung tâm", "Kho miền Nam", "Kho miền Bắc", "Kho vận chuyển"),
+                            options = listOf("Tất cả kho") + warehouses,
                             modifier = Modifier.weight(1f),
                             onValueChange = { selectedWarehouse = it; currentPage = 1 }
                         )
                         InventoryFilterDropdown(
                             label = "Danh mục",
                             value = selectedCategory,
-                            options = listOf("Tất cả danh mục", "Đồ uống", "Thực phẩm", "Gia dụng", "Đồ hộp"),
+                            options = listOf("Tất cả danh mục") + categories,
                             modifier = Modifier.weight(1f),
                             onValueChange = { selectedCategory = it; currentPage = 1 }
                         )
@@ -263,7 +253,12 @@ fun InventoryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     SummaryPill("Tổng dòng", filteredItems.size.toString())
-                    SummaryPill("Hiển thị", "${((currentPage - 1) * PAGE_SIZE + 1)}-${minOf(currentPage * PAGE_SIZE, filteredItems.size)}")
+                    SummaryPill(
+                        "Hiển thị",
+                        if (filteredItems.isEmpty()) "0" else {
+                            "${((currentPage - 1) * PAGE_SIZE + 1)}-${minOf(currentPage * PAGE_SIZE, filteredItems.size)}"
+                        }
+                    )
                     SummaryPill("Trang", "$currentPage/$pageCount")
                 }
 
@@ -464,7 +459,14 @@ private fun InventoryTableHeader(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableCell(text = "Sản phẩm", weight = 2.1f)
+        TableCell(
+            text = "Sản phẩm",
+            weight = 2.1f,
+            clickable = true,
+            isSelected = sortBy == InventorySortBy.PRODUCT_NAME,
+            trailing = if (sortBy == InventorySortBy.PRODUCT_NAME) sortIcon else "",
+            onClick = { onSortChange(InventorySortBy.PRODUCT_NAME) }
+        )
         TableCell(text = "Kho", weight = 1.2f)
         TableCell(text = "Mã lô", weight = 0.9f)
         TableCell(
@@ -499,7 +501,7 @@ private fun InventoryTableRow(item: InventoryItem, onDetailsClick: () -> Unit) {
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableCell(text = "${item.sku}\n${item.productName}", weight = 2.1f, isTitle = true)
+        ProductCell(item)
         TableCell(text = item.warehouseName, weight = 1.2f)
         TableCell(text = InventoryFormatters.formatBatch(item.batchCode), weight = 0.9f)
         TableCell(text = InventoryFormatters.formatDate(item.expiryDate), weight = 1f, color = expiryTextColor(item.expiryStatus))
@@ -513,6 +515,38 @@ private fun InventoryTableRow(item: InventoryItem, onDetailsClick: () -> Unit) {
             isAction = true,
             onClick = onDetailsClick
         )
+    }
+}
+
+@Composable
+private fun RowScope.ProductCell(item: InventoryItem) {
+    Row(
+        modifier = Modifier.weight(2.1f).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        InventoryProductThumbnail(
+            imageUrl = item.imageUrl,
+            contentDescription = item.productName,
+            modifier = Modifier.size(44.dp)
+        )
+        Column {
+            Text(
+                item.sku,
+                color = CrudColors.TextSecondary,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                item.productName,
+                color = CrudColors.TextPrimary,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

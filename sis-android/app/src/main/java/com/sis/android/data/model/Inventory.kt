@@ -29,6 +29,8 @@ data class InventoryItem(
     @SerializedName("imageUrl", alternate = ["image_url"]) val imageUrl: String? = null,
     @SerializedName("sku") val sku: String = "",
     @SerializedName("productName", alternate = ["product_name"]) val productName: String = "",
+    @SerializedName("barcode") val barcode: String? = null,
+    @SerializedName("categoryName", alternate = ["category_name"]) val categoryName: String? = null,
     @SerializedName("unit") val unit: String = "Cái",
     @SerializedName("warehouseId", alternate = ["warehouse_id"]) val warehouseId: Long = 0L,
     @SerializedName("warehouseName", alternate = ["warehouse_name"]) val warehouseName: String = "",

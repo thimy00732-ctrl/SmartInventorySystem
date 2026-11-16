@@ -306,5 +306,11 @@ object InventoryMockData {
             availableQuantity = 255,
             imageUrl = null
         )
-    )
+    ).map { item ->
+        val details = productDetails(item.productId)
+        item.copy(
+            barcode = details.barcode,
+            categoryName = details.categoryName
+        )
+    }
 }
