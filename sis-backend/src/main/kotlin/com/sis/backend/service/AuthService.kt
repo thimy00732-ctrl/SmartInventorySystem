@@ -37,10 +37,8 @@ class AuthService(
             ?: throw Exception("Email hoặc mật khẩu không chính xác")
 
         // Bước 2: Kiểm tra mật khẩu
-        // Dùng PasswordService.verifyPassword() để xác minh mật khẩu
-        // Bước 2: Kiểm tra mật khẩu
-        // So sánh plaintext vì password trong DB là plaintext
-        val isPasswordValid = request.password == user.password_hash
+        // Dùng PasswordService.verifyPassword() để xác minh mật khẩu BCrypt
+        val isPasswordValid = PasswordService.verifyPassword(request.password, user.password_hash)
         if (!isPasswordValid) {
             throw Exception("Email hoặc mật khẩu không chính xác")
         }
