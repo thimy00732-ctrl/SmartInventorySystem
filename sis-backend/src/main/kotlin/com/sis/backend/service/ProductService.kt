@@ -360,6 +360,12 @@ class ProductService(
             )
         }
 
+        if (salePrice < costPrice) {
+            throw InvalidProductException(
+                "Giá bán không được nhỏ hơn giá vốn."
+            )
+        }
+
         if (minStock < 0 || maxStock < 0) {
             throw InvalidProductException(
                 "Số lượng tồn kho không được nhỏ hơn 0."

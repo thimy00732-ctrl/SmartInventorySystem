@@ -121,6 +121,19 @@ fun ProductFormScreen(
                         salePrice, { salePrice = it }, "Giá bán (đ) *",
                         keyboardType = KeyboardType.Decimal
                     )
+                    
+                    // Hiển thị warning nếu giá bán < giá vốn
+                    val priceCost = costPrice.toDoubleOrNull()
+                    val priceSale = salePrice.toDoubleOrNull()
+                    if (priceCost != null && priceSale != null && priceSale > 0 && priceSale < priceCost) {
+                        Text(
+                            text = "⚠️ Giá bán (${String.format("%,.0f", priceSale)}đ) thấp hơn giá vốn (${String.format("%,.0f", priceCost)}đ)",
+                            color = CrudColors.DangerAction,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
 
                 AppCard(title = "Trạng thái kinh doanh") {
@@ -156,6 +169,9 @@ fun ProductFormScreen(
                                 localError = "Giá vốn phải là số hợp lệ >= 0"
                             priceSale == null || priceSale < 0 ->
                                 localError = "Giá bán phải là số hợp lệ >= 0"
+                            // 🔒 BUG FIX: Giá bán phải >= giá vốn (không cho bán lỗ)
+                            priceSale < priceCost ->
+                                localError = "Giá bán (${String.format("%,.0f", priceSale)}đ) không được nhỏ hơn giá vốn (${String.format("%,.0f", priceCost)}đ)!"
                             else -> {
                                 localError = null
                                 onSave(
