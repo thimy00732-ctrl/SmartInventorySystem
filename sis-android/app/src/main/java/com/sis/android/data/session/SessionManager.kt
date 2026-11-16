@@ -41,6 +41,9 @@ class SessionManager(context: Context) {
 
     /** Lấy access token (dùng cho Authorization header) */
     fun getToken(): String? = preferences.getString(KEY_ACCESS_TOKEN, null)
+    
+    /** Alias của getToken() - lấy access token */
+    fun getAccessToken(): String? = getToken()
 
     /** Lấy refresh token (dùng để gia hạn session) */
     fun getRefreshToken(): String? = preferences.getString(KEY_REFRESH_TOKEN, null)

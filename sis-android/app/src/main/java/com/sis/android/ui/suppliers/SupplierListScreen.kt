@@ -31,6 +31,7 @@ import com.sis.android.ui.components.form.ChipRow
 @Composable
 fun SupplierListScreen(
     viewModel: SupplierViewModel,
+    isAdmin: Boolean,
     onSupplierClick: (Supplier) -> Unit,
     onAddClick: () -> Unit,
     onMenuClick: (() -> Unit)? = null
@@ -87,12 +88,15 @@ fun SupplierListScreen(
         containerColor = CrudColors.LightGreenBg,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddClick,
-                containerColor = CrudColors.Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Thêm")
+            // UC23: Thêm nhà cung cấp - CHỈ ADMIN
+            if (isAdmin) {
+                FloatingActionButton(
+                    onClick = onAddClick,
+                    containerColor = CrudColors.Primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Thêm")
+                }
             }
         }
     ) { paddingValues ->

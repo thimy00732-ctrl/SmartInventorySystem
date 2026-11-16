@@ -64,6 +64,7 @@ fun AppNavigationDrawer(
     currentRoute: String,
     onNavigate: (String) -> Unit,
     onCloseDrawer: () -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navigationItems = remember(currentUser) {
@@ -82,7 +83,7 @@ fun AppNavigationDrawer(
         // Navigation items
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f) // Thay fillMaxSize() bằng weight(1f)
                 .padding(vertical = 8.dp)
         ) {
             items(navigationItems) { item ->
@@ -112,7 +113,8 @@ fun AppNavigationDrawer(
             }
         }
         
-        Spacer(modifier = Modifier.weight(1f))
+        // Logout button
+        LogoutButton(onLogout = onLogout)
         
         // Footer - Version info
         DrawerFooter()
@@ -407,6 +409,78 @@ private fun BadgeDisplay(badge: BadgeInfo) {
 }
 
 @Composable
+private fun LogoutButton(onLogout: () -> Unit) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showConfirmDialog = true }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Logout,
+                contentDescription = "Đăng xuất",
+                modifier = Modifier.size(24.dp),
+                tint = CrudColors.DangerAction
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Text(
+                text = "Đăng xuất",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = CrudColors.DangerAction
+            )
+        }
+    }
+    
+    // Confirm dialog
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Logout,
+                    contentDescription = null,
+                    tint = CrudColors.DangerAction
+                )
+            },
+            title = {
+                Text("Xác nhận đăng xuất")
+            },
+            text = {
+                Text("Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmDialog = false
+                        onLogout()
+                    }
+                ) {
+                    Text("Đăng xuất", color = CrudColors.DangerAction)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+}
+
+@Composable
 private fun DrawerFooter() {
     Divider(color = MaterialTheme.colorScheme.outlineVariant)
     
@@ -432,56 +506,81 @@ private fun DrawerFooter() {
 
 /**
  * Build navigation items dựa trên role của user
+ * 
+ * Theo tài liệu phân quyền 111 UC:
+ * - ADMIN: Toàn quyền, bao gồm cả quản lý người dùng và điều chỉnh tồn kho
+ * - WAREHOUSE_STAFF: Quyền hạn chế, chỉ xem/lập phiếu, không duyệt phiếu
  */
 private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
     val userRole = currentUser?.role ?: "GUEST"
+    val isAdmin = userRole == "ADMIN"
+    val isStaff = userRole == "WAREHOUSE_STAFF"
     
     val allItems = listOf(
-        // 1. Dashboard (Direct link)
+        // 1. Dashboard (UC89 - Cả hai role, nhưng staff không thấy giá trị tồn kho)
         NavigationItem(
             id = "dashboard",
-            title = "Dashboard",
+            title = "Tổng quan",
             icon = Icons.Default.Dashboard,
             route = "dashboard",
-            badge = BadgeInfo(count = 5, color = CrudColors.Primary) // Xanh olive
+            badge = BadgeInfo(count = 5, color = CrudColors.Primary)
         ),
         
-        // 2. Sản phẩm & Danh mục (3 items)
+        // 2. Sản phẩm & Danh mục
+        // UC08-UC17: Admin - CRUD, Staff - Chỉ xem, tìm kiếm, lọc
         NavigationItem(
             id = "products_categories",
             title = "Sản phẩm & Danh mục",
             icon = Icons.Default.Category,
-            children = listOf(
-                NavigationChild(
+            children = buildList {
+                // UC09, UC10, UC13, UC14: Xem và tìm kiếm - Cả hai role
+                add(NavigationChild(
                     id = "products_list",
                     title = "Danh sách sản phẩm",
                     route = "products"
-                ),
-                NavigationChild(
-                    id = "products_add",
-                    title = "Thêm sản phẩm mới",
-                    route = "products/add"
-                ),
-                NavigationChild(
+                ))
+                
+                // UC08: Thêm sản phẩm - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "products_add",
+                        title = "Thêm sản phẩm mới",
+                        route = "products/add"
+                    ))
+                }
+                
+                // UC18-UC22: Quản lý danh mục - Admin CRUD, Staff chỉ xem
+                add(NavigationChild(
                     id = "categories",
-                    title = "Quản lý danh mục",
+                    title = if (isAdmin) "Quản lý danh mục" else "Danh mục sản phẩm",
                     route = "categories"
-                )
-            )
+                ))
+            }
         ),
         
-        // 3. Quản lý tồn kho (4 items)
+        // 3. Nhà cung cấp
+        // UC23-UC28: Admin - CRUD, Staff - Chỉ xem
+        NavigationItem(
+            id = "suppliers",
+            title = "Nhà cung cấp",
+            icon = Icons.Default.Business,
+            route = "suppliers"
+        ),
+        
+        // 4. Quản lý tồn kho
+        // UC29-UC38: Xem tồn kho, sổ kho - Cả hai role
+        // UC39: Tính giá trị tồn kho - CHỈ ADMIN
         NavigationItem(
             id = "inventory",
             title = "Quản lý tồn kho",
             icon = Icons.Default.Inventory,
-            badge = BadgeInfo(text = "NEW", color = CrudColors.OkText), // Xanh lá
+            badge = BadgeInfo(text = "NEW", color = CrudColors.OkText),
             children = listOf(
                 NavigationChild(
                     id = "stock_overview",
                     title = "Tổng quan tồn kho",
                     route = "inventory/overview",
-                    badge = BadgeInfo(count = 3, color = CrudColors.DangerAction) // Đỏ warning
+                    badge = BadgeInfo(count = 3, color = CrudColors.DangerAction)
                 ),
                 NavigationChild(
                     id = "stock_by_location",
@@ -492,7 +591,7 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
                     id = "stock_alerts",
                     title = "Cảnh báo tồn kho",
                     route = "inventory/alerts",
-                    badge = BadgeInfo(count = 12, color = CrudColors.WarnText) // Cam warning
+                    badge = BadgeInfo(count = 12, color = CrudColors.WarnText)
                 ),
                 NavigationChild(
                     id = "stock_movements",
@@ -502,116 +601,164 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
             )
         ),
         
-        // 4. Nhập / Xuất / Kiểm kê (4 items)
+        // 5. Nhập / Xuất / Kiểm kê
+        // UC40-UC67: Lập phiếu - Cả hai role, Duyệt phiếu - CHỈ ADMIN
         NavigationItem(
             id = "operations",
-            title = "Nhập / Xuất / Kiểm kê",
+            title = "Phiếu nhập / xuất",
             icon = Icons.Default.SwapHoriz,
-            children = listOf(
-                NavigationChild(
+            children = buildList {
+                // UC40-UC48: Phiếu nhập kho - Cả hai role lập, Admin duyệt
+                add(NavigationChild(
                     id = "import_receipt",
                     title = "Phiếu nhập kho",
                     route = "receipts/import"
-                ),
-                NavigationChild(
+                ))
+                
+                // UC49-UC58: Phiếu xuất kho - Cả hai role lập, Admin duyệt
+                add(NavigationChild(
                     id = "export_receipt",
                     title = "Phiếu xuất kho",
                     route = "receipts/export"
-                ),
-                NavigationChild(
+                ))
+                
+                // UC59-UC67: Kiểm kê - Cả hai role đếm, Admin xác nhận
+                add(NavigationChild(
                     id = "stock_take",
                     title = "Phiếu kiểm kê",
                     route = "stock-take"
-                ),
-                NavigationChild(
+                ))
+                
+                // UC65: Điều chỉnh tồn kho - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "inventory_adjustment",
+                        title = "Điều chỉnh tồn kho",
+                        route = "inventory/adjustment"
+                    ))
+                }
+                
+                // Lịch sử phiếu - Cả hai role
+                add(NavigationChild(
                     id = "receipt_history",
                     title = "Lịch sử phiếu",
                     route = "receipts/history"
-                )
-            )
+                ))
+            }
         ),
         
-        // 5. Tính năng nâng cao (3 items)
+        // 6. Tính năng nâng cao
+        // UC68-UC88: Quét mã, lô hàng, chatbot - Cả hai role
         NavigationItem(
             id = "advanced",
             title = "Tính năng nâng cao",
             icon = Icons.Default.AutoAwesome,
             children = listOf(
+                // UC68-UC72: Quét mã vạch
                 NavigationChild(
                     id = "barcode_scan",
-                    title = "Quét mã vạch",
+                    title = "Quét mã vạch / QR",
                     route = "barcode/scan"
                 ),
+                // UC73-UC80: Quản lý lô hàng
                 NavigationChild(
-                    id = "batch_operations",
-                    title = "Xử lý hàng loạt",
-                    route = "batch"
+                    id = "batch_management",
+                    title = "Quản lý lô hàng",
+                    route = "batches"
                 ),
+                // UC81-UC88: Trợ lý AI
                 NavigationChild(
-                    id = "suppliers",
-                    title = "Nhà cung cấp",
-                    route = "suppliers"
+                    id = "ai_assistant",
+                    title = "Trợ lý AI",
+                    route = "assistant"
                 )
             )
         ),
         
-        // 6. Báo cáo & Thống kê (2 items)
+        // 7. Báo cáo & Thống kê
+        // UC89-UC111: Báo cáo - Cả hai role
+        // UC91: Báo cáo giá trị tồn kho - CHỈ ADMIN
         NavigationItem(
             id = "reports",
             title = "Báo cáo & Thống kê",
             icon = Icons.Default.Analytics,
-            children = listOf(
-                NavigationChild(
+            children = buildList {
+                // UC98: Báo cáo tồn kho - Cả hai role
+                add(NavigationChild(
                     id = "reports_inventory",
                     title = "Báo cáo tồn kho",
                     route = "reports/inventory"
-                ),
-                NavigationChild(
+                ))
+                
+                // UC99-UC100: Báo cáo nhập/xuất - Cả hai role
+                add(NavigationChild(
                     id = "reports_movements",
                     title = "Báo cáo xuất nhập",
                     route = "reports/movements"
-                )
-            )
-        ),
-        
-        // 7. Cài đặt hệ thống (5 items) - Admin only
-        NavigationItem(
-            id = "settings",
-            title = "Cài đặt hệ thống",
-            icon = Icons.Default.Settings,
-            requiredRoles = listOf("ADMIN"),
-            children = listOf(
-                NavigationChild(
-                    id = "users",
-                    title = "Quản lý người dùng",
-                    route = "settings/users"
-                ),
-                NavigationChild(
-                    id = "warehouses",
-                    title = "Quản lý kho",
-                    route = "settings/warehouses"
-                ),
-                NavigationChild(
-                    id = "locations",
-                    title = "Quản lý vị trí",
-                    route = "settings/locations"
-                ),
-                NavigationChild(
-                    id = "permissions",
-                    title = "Phân quyền",
-                    route = "settings/permissions"
-                ),
-                NavigationChild(
-                    id = "system",
-                    title = "Cấu hình hệ thống",
-                    route = "settings/system"
-                )
-            )
+                ))
+                
+                // UC102: Báo cáo hàng cận hạn - Cả hai role
+                add(NavigationChild(
+                    id = "reports_expiry",
+                    title = "Báo cáo hàng cận hạn",
+                    route = "reports/expiry"
+                ))
+                
+                // UC103: Báo cáo chênh lệch kiểm kê - Cả hai role
+                add(NavigationChild(
+                    id = "reports_stocktake",
+                    title = "Báo cáo kiểm kê",
+                    route = "reports/stocktake"
+                ))
+                
+                // UC91: Báo cáo giá trị tồn kho (giá vốn) - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "reports_value",
+                        title = "Báo cáo giá trị tồn kho",
+                        route = "reports/value"
+                    ))
+                }
+            }
         )
     )
     
+    // 8. Quản lý người dùng - CHỈ ADMIN (UC03, UC04)
+    val adminOnlyItems = if (isAdmin) {
+        listOf(
+            NavigationItem(
+                id = "staff_management",
+                title = "Quản lý nhân viên",
+                icon = Icons.Default.People,
+                route = "STAFF_LIST",
+                requiredRoles = listOf("ADMIN")
+            ),
+            NavigationItem(
+                id = "settings",
+                title = "Quản lý hệ thống",
+                icon = Icons.Default.Settings,
+                requiredRoles = listOf("ADMIN"),
+                children = listOf(
+                    // UC33: Thiết lập ngưỡng tồn kho - CHỈ ADMIN
+                    NavigationChild(
+                        id = "warehouses",
+                        title = "Quản lý kho",
+                        route = "settings/warehouses"
+                    ),
+                    NavigationChild(
+                        id = "system",
+                        title = "Cấu hình hệ thống",
+                        route = "settings/system"
+                    )
+                )
+            )
+        )
+    } else {
+        emptyList()
+    }
+    
     // Filter based on role
-    return allItems.filter { item ->
+    return (allItems + adminOnlyItems).filter { item ->
         item.requiredRoles == null || item.requiredRoles.contains(userRole)
     }
 }

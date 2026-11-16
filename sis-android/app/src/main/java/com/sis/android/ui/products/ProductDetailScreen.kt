@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProductDetailScreen(
     product: Product,
+    isAdmin: Boolean,
     onBackClick: () -> Unit,
     onEditClick: (Product) -> Unit,
     onDeleteClick: (Product) -> Unit,
@@ -53,12 +54,15 @@ fun ProductDetailScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onEditClick(product) },
-                containerColor = CrudColors.Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
+            // UC11: Cập nhật sản phẩm - CHỈ ADMIN
+            if (isAdmin) {
+                FloatingActionButton(
+                    onClick = { onEditClick(product) },
+                    containerColor = CrudColors.Primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
+                }
             }
         }
     ) { padding ->
@@ -72,12 +76,15 @@ fun ProductDetailScreen(
                 subtitle = product.sku,
                 onBack = onBackClick,
                 actions = {
-                    HeaderIconButton(Icons.Default.Delete, "Xóa") {
-                        // 🔒 Nghiệp vụ: Chỉ cho phép xóa khi đã NGỪNG KINH DOANH
-                        if (isActive) {
-                            snackbarMessage = "Vui lòng 'Ngừng kinh doanh' sản phẩm trước khi xóa!"
-                        } else {
-                            showDeleteDialog = true
+                    // UC12: Ngừng kinh doanh/Xóa sản phẩm - CHỈ ADMIN
+                    if (isAdmin) {
+                        HeaderIconButton(Icons.Default.Delete, "Xóa") {
+                            // 🔒 Nghiệp vụ: Chỉ cho phép xóa khi đã NGỪNG KINH DOANH
+                            if (isActive) {
+                                snackbarMessage = "Vui lòng 'Ngừng kinh doanh' sản phẩm trước khi xóa!"
+                            } else {
+                                showDeleteDialog = true
+                            }
                         }
                     }
                 }
@@ -156,15 +163,18 @@ fun ProductDetailScreen(
                     }
                 }
 
-                OutlinedButton(
-                    onClick = { onToggleActiveClick(product) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = CrudStyles.ButtonShape,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (isActive) CrudColors.DangerAction else CrudColors.Primary
-                    )
-                ) {
-                    Text(if (isActive) "Ngừng kinh doanh sản phẩm" else "Tiếp tục kinh doanh sản phẩm")
+                // UC12: Ngừng kinh doanh/Kích hoạt lại - CHỈ ADMIN
+                if (isAdmin) {
+                    OutlinedButton(
+                        onClick = { onToggleActiveClick(product) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = CrudStyles.ButtonShape,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (isActive) CrudColors.DangerAction else CrudColors.Primary
+                        )
+                    ) {
+                        Text(if (isActive) "Ngừng kinh doanh sản phẩm" else "Tiếp tục kinh doanh sản phẩm")
+                    }
                 }
             }
         }

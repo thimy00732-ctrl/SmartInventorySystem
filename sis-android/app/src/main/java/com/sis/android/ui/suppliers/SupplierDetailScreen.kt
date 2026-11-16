@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SupplierDetailScreen(
     supplier: Supplier,
+    isAdmin: Boolean,
     onBackClick: () -> Unit,
     onEditClick: (Supplier) -> Unit,
     onDeleteClick: (Supplier) -> Unit,
@@ -50,12 +51,15 @@ fun SupplierDetailScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onEditClick(supplier) },
-                containerColor = CrudColors.Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
+            // UC26: Cập nhật nhà cung cấp - CHỈ ADMIN
+            if (isAdmin) {
+                FloatingActionButton(
+                    onClick = { onEditClick(supplier) },
+                    containerColor = CrudColors.Primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
+                }
             }
         }
     ) { padding ->
@@ -65,11 +69,14 @@ fun SupplierDetailScreen(
                 subtitle = "Chi tiết nhà cung cấp",
                 onBack = onBackClick,
                 actions = {
-                    HeaderIconButton(Icons.Default.Delete, "Xóa") {
-                        if (supplier.isActive) {
-                            snackbarMessage = "Vui lòng ngừng hoạt động nhà cung cấp trước khi xóa!"
-                        } else {
-                            showDeleteDialog = true
+                    // UC27: Ngừng hợp tác/Xóa nhà cung cấp - CHỈ ADMIN
+                    if (isAdmin) {
+                        HeaderIconButton(Icons.Default.Delete, "Xóa") {
+                            if (supplier.isActive) {
+                                snackbarMessage = "Vui lòng ngừng hoạt động nhà cung cấp trước khi xóa!"
+                            } else {
+                                showDeleteDialog = true
+                            }
                         }
                     }
                 }
@@ -118,15 +125,18 @@ fun SupplierDetailScreen(
                     }
                 }
 
-                OutlinedButton(
-                    onClick = { onToggleActiveClick(supplier) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = CrudStyles.ButtonShape,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (supplier.isActive) CrudColors.DangerAction else CrudColors.Primary
-                    )
-                ) {
-                    Text(if (supplier.isActive) "Ngừng hợp tác" else "Kích hoạt lại")
+                // UC27: Ngừng hợp tác/Kích hoạt lại - CHỈ ADMIN
+                if (isAdmin) {
+                    OutlinedButton(
+                        onClick = { onToggleActiveClick(supplier) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = CrudStyles.ButtonShape,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (supplier.isActive) CrudColors.DangerAction else CrudColors.Primary
+                        )
+                    ) {
+                        Text(if (supplier.isActive) "Ngừng hợp tác" else "Kích hoạt lại")
+                    }
                 }
             }
         }

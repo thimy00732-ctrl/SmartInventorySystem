@@ -316,3 +316,614 @@ Có cần vai trò `MANAGER` riêng để tách người duyệt phiếu khỏi 
 **Áp dụng cho**: Backend Kotlin/Ktor + Android Jetpack Compose  
 **Database**: PostgreSQL với 11 bảng  
 **Ngày tạo**: 2026-11-03
+
+
+---
+
+## 9. Triển khai kỹ thuật
+
+### 9.1. Backend (Kotlin/Ktor)
+
+#### A. Cấu trúc thư mục
+
+```
+sis-backend/src/main/kotlin/com/sis/backend/
+├── security/
+│   ├── AuthenticationPlugin.kt      # Cấu hình JWT authentication
+│   ├── RoleBasedAuthorization.kt    # Plugin kiểm tra quyền theo role
+│   ├── JwtService.kt                # Tạo và verify JWT token
+│   └── PasswordService.kt           # Hash và verify password
+├── routes/
+│   ├── AuthRoutes.kt                # UC01-UC07: Login, logout, user management
+│   ├── ProductRoutes.kt             # UC08-UC17: Products API
+│   ├── CategoryRoutes.kt            # UC18-UC22: Categories API
+│   └── SupplierRoutes.kt            # UC23-UC28: Suppliers API
+└── Application.kt                   # Main app, enable authentication
+```
+
+#### B. AuthenticationPlugin.kt
+
+**Mục đích**: Cấu hình JWT authentication cho Ktor, verify token và extract user info.
+
+```kotlin
+package com.sis.backend.security
+
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import io.ktor.http.*
+import io.ktor.server.response.*
+
+data class JwtPrincipal(
+    val userId: Int,
+    val email: String,
+    val role: String
+) : Principal
+
+fun Application.configureAuthentication() {
+    val jwtSecret = environment.config.propertyOrNull("jwt.secret")?.getString() 
+        ?: "your-secret-key-change-this-in-production-min-256-bits"
+    val jwtIssuer = environment.config.propertyOrNull("jwt.issuer")?.getString() 
+        ?: "warehouse-system"
+    val jwtAudience = environment.config.propertyOrNull("jwt.audience")?.getString() 
+        ?: "warehouse-api"
+
+    install(Authentication) {
+        jwt("auth-jwt") {
+            verifier(
+                JWT
+                    .require(Algorithm.HMAC256(jwtSecret))
+                    .withAudience(jwtAudience)
+                    .withIssuer(jwtIssuer)
+                    .build()
+            )
+            
+            validate { credential ->
+                val userId = credential.payload.getClaim("userId").asInt()
+                val email = credential.payload.getClaim("email").asString()
+                val role = credential.payload.getClaim("role").asString()
+                
+                if (userId != null && email != null && role != null) {
+                    JwtPrincipal(userId, email, role)
+                } else {
+                    null
+                }
+            }
+            
+            challenge { _, _ ->
+                call.respond(
+                    HttpStatusCode.Unauthorized, 
+                    mapOf("error" to "Token không hợp lệ hoặc đã hết hạn")
+                )
+            }
+        }
+    }
+}
+
+// Extension functions để lấy thông tin user từ JWT
+fun ApplicationCall.getUserId(): Int {
+    return principal<JwtPrincipal>()?.userId 
+        ?: throw IllegalStateException("User ID not found")
+}
+
+fun ApplicationCall.getUserRole(): String {
+    return principal<JwtPrincipal>()?.role 
+        ?: throw IllegalStateException("Role not found")
+}
+
+fun ApplicationCall.isAdmin(): Boolean {
+    return getUserRole() == "ADMIN"
+}
+```
+
+#### C. RoleBasedAuthorization.kt
+
+**Mục đích**: Tạo các wrapper functions để kiểm tra quyền theo role.
+
+```kotlin
+package com.sis.backend.security
+
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.http.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+
+// Plugin kiểm tra role
+class RoleBasedAuthorizationPlugin(private val requiredRoles: Set<String>) {
+    class Configuration {
+        val roles = mutableSetOf<String>()
+        fun role(vararg roles: String) {
+            this.roles.addAll(roles)
+        }
+    }
+
+    companion object Plugin : BaseRouteScopedPlugin<Configuration, RoleBasedAuthorizationPlugin> {
+        override val key = AttributeKey<RoleBasedAuthorizationPlugin>("RoleBasedAuthorization")
+
+        override fun install(
+            pipeline: ApplicationCallPipeline,
+            configure: Configuration.() -> Unit
+        ): RoleBasedAuthorizationPlugin {
+            val config = Configuration().apply(configure)
+            val plugin = RoleBasedAuthorizationPlugin(config.roles)
+
+            pipeline.intercept(ApplicationCallPipeline.Plugins) {
+                val principal = call.principal<JwtPrincipal>()
+                
+                if (principal == null) {
+                    call.respond(HttpStatusCode.Unauthorized, 
+                        mapOf("error" to "Thiếu hoặc token không hợp lệ"))
+                    finish()
+                    return@intercept
+                }
+
+                if (principal.role !in plugin.requiredRoles) {
+                    call.respond(HttpStatusCode.Forbidden, 
+                        mapOf("error" to "Bạn không có quyền truy cập chức năng này"))
+                    finish()
+                    return@intercept
+                }
+            }
+
+            return plugin
+        }
+    }
+}
+
+/**
+ * Extension function: Yêu cầu ADMIN role
+ * Sử dụng: requireAdmin { get("/products") { ... } }
+ */
+fun Route.requireAdmin(build: Route.() -> Unit): Route {
+    return authenticate("auth-jwt") {
+        install(RoleBasedAuthorizationPlugin) {
+            role("ADMIN")
+        }
+        build()
+    }
+}
+
+/**
+ * Extension function: Yêu cầu WAREHOUSE_STAFF hoặc ADMIN
+ * Sử dụng: requireStaffOrAdmin { get("/products") { ... } }
+ */
+fun Route.requireStaffOrAdmin(build: Route.() -> Unit): Route {
+    return authenticate("auth-jwt") {
+        install(RoleBasedAuthorizationPlugin) {
+            role("ADMIN", "WAREHOUSE_STAFF")
+        }
+        build()
+    }
+}
+
+// Helper functions để kiểm tra quyền phức tạp
+fun checkOwnership(
+    createdByUserId: Int,
+    currentUserId: Int,
+    currentUserRole: String,
+    allowAdmin: Boolean = true
+): Boolean {
+    if (allowAdmin && currentUserRole == "ADMIN") return true
+    return createdByUserId == currentUserId
+}
+
+fun canEditTransaction(
+    transactionStatus: String,
+    createdByUserId: Int,
+    currentUserId: Int,
+    currentUserRole: String
+): Boolean {
+    if (transactionStatus != "DRAFT") return false
+    return checkOwnership(createdByUserId, currentUserId, currentUserRole)
+}
+
+fun canApproveTransaction(
+    createdByUserId: Int,
+    currentUserId: Int,
+    currentUserRole: String
+): Boolean {
+    if (currentUserRole != "ADMIN") return false
+    return createdByUserId != currentUserId // Không tự duyệt phiếu của mình
+}
+```
+
+#### D. Áp dụng vào Routes
+
+**ProductRoutes.kt** - Ví dụ phân quyền theo UC08-UC17:
+
+```kotlin
+fun Route.productRoutes(productController: ProductController) {
+    route("/api/products") {
+        
+        // UC09, UC10, UC13, UC14: Xem, tìm kiếm - Cả hai role
+        requireStaffOrAdmin {
+            get {
+                val products = productController.getProducts(call)
+                call.respond(HttpStatusCode.OK, products)
+            }
+            
+            get("/{id}") {
+                val product = productController.getProductById(call)
+                call.respond(HttpStatusCode.OK, product)
+            }
+        }
+        
+        // UC08, UC11, UC12: Thêm, sửa, xóa - CHỈ ADMIN
+        requireAdmin {
+            post {
+                val product = productController.createProduct(call)
+                call.respond(HttpStatusCode.Created, product)
+            }
+            
+            put("/{id}") {
+                val product = productController.updateProduct(call)
+                call.respond(HttpStatusCode.OK, product)
+            }
+            
+            patch("/{id}/deactivate") {
+                productController.deactivateProduct(call)
+                call.respond(HttpStatusCode.OK, 
+                    mapOf("message" to "Ngừng kinh doanh sản phẩm thành công"))
+            }
+        }
+    }
+}
+```
+
+#### E. Enable Authentication trong Application.kt
+
+```kotlin
+fun Application.module() {
+    configureStatusPages()
+    configureAuthentication()  // ← Enable JWT authentication
+    
+    install(ContentNegotiation) {
+        json(Json {
+            prettyPrint = true
+            ignoreUnknownKeys = true
+        })
+    }
+
+    dataSource = DatabaseConfig.createDataSource()
+
+    routing {
+        authRoutes(dataSource)      // Public (login, logout)
+        productRoutes(...)          // Protected với phân quyền
+        categoryRoutes(...)         // Protected với phân quyền
+        supplierRoutes(...)         // Protected với phân quyền
+    }
+}
+```
+
+---
+
+### 9.2. Android App (Jetpack Compose)
+
+#### A. Cấu trúc thư mục
+
+```
+sis-android/app/src/main/java/com/sis/android/
+├── data/
+│   ├── model/
+│   │   ├── User.kt                  # User model với role
+│   │   └── LoginResponse.kt         # Response từ API login
+│   ├── session/
+│   │   └── SessionManager.kt        # Lưu trữ session + full_name
+│   └── repository/
+│       └── AuthRepository.kt        # Xử lý login, lưu session
+└── ui/
+    └── navigation/
+        └── NavigationDrawer.kt      # Drawer với phân quyền menu
+```
+
+#### B. User Model
+
+```kotlin
+data class User(
+    val user_id: Int,
+    val email: String,
+    val fullName: String?,
+    val role: String,           // "ADMIN" hoặc "WAREHOUSE_STAFF"
+    val is_active: Boolean,
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresIn: Long
+)
+```
+
+#### C. NavigationDrawer.kt - Phân quyền menu
+
+**Nguyên tắc**:
+- Kiểm tra `currentUser?.role` để quyết định hiển thị menu nào
+- Admin thấy tất cả menu
+- Staff không thấy: "Thêm sản phẩm", "Điều chỉnh tồn kho", "Báo cáo giá trị tồn kho", "Quản lý người dùng"
+
+```kotlin
+private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
+    val userRole = currentUser?.role ?: "GUEST"
+    val isAdmin = userRole == "ADMIN"
+    val isStaff = userRole == "WAREHOUSE_STAFF"
+    
+    val allItems = buildList {
+        // 1. Dashboard - Cả hai role
+        add(NavigationItem(
+            id = "dashboard",
+            title = "Tổng quan",
+            icon = Icons.Default.Dashboard,
+            route = "dashboard"
+        ))
+        
+        // 2. Sản phẩm & Danh mục
+        add(NavigationItem(
+            id = "products_categories",
+            title = "Sản phẩm & Danh mục",
+            icon = Icons.Default.Category,
+            children = buildList {
+                // Xem danh sách - Cả hai role
+                add(NavigationChild(
+                    id = "products_list",
+                    title = "Danh sách sản phẩm",
+                    route = "products"
+                ))
+                
+                // Thêm sản phẩm - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "products_add",
+                        title = "Thêm sản phẩm mới",
+                        route = "products/add"
+                    ))
+                }
+                
+                add(NavigationChild(
+                    id = "categories",
+                    title = if (isAdmin) "Quản lý danh mục" else "Danh mục sản phẩm",
+                    route = "categories"
+                ))
+            }
+        ))
+        
+        // ... các menu khác tương tự
+        
+        // Quản lý người dùng - CHỈ ADMIN
+        if (isAdmin) {
+            add(NavigationItem(
+                id = "settings",
+                title = "Quản lý hệ thống",
+                icon = Icons.Default.Settings,
+                requiredRoles = listOf("ADMIN"),
+                children = listOf(
+                    NavigationChild(
+                        id = "users",
+                        title = "Quản lý người dùng",
+                        route = "settings/users"
+                    ),
+                    NavigationChild(
+                        id = "permissions",
+                        title = "Phân quyền hệ thống",
+                        route = "settings/permissions"
+                    )
+                )
+            ))
+        }
+    }
+    
+    // Filter theo role
+    return allItems.filter { item ->
+        item.requiredRoles == null || item.requiredRoles.contains(userRole)
+    }
+}
+```
+
+#### D. Ẩn/hiện nút trong màn hình chi tiết
+
+Trong các màn hình như ProductListScreen, CategoryListScreen, v.v., cần ẩn nút CRUD với Staff:
+
+```kotlin
+@Composable
+fun ProductListScreen(
+    viewModel: ProductViewModel,
+    currentUser: User?,
+    onNavigateToAdd: () -> Unit
+) {
+    val isAdmin = currentUser?.role == "ADMIN"
+    
+    Scaffold(
+        floatingActionButton = {
+            // Chỉ Admin mới thấy nút "Thêm sản phẩm"
+            if (isAdmin) {
+                FloatingActionButton(onClick = onNavigateToAdd) {
+                    Icon(Icons.Default.Add, "Thêm sản phẩm")
+                }
+            }
+        }
+    ) {
+        LazyColumn {
+            items(products) { product ->
+                ProductItem(
+                    product = product,
+                    onEdit = if (isAdmin) { { /* Edit */ } } else null,
+                    onDelete = if (isAdmin) { { /* Delete */ } } else null
+                )
+            }
+        }
+    }
+}
+```
+
+---
+
+### 9.3. Testing phân quyền
+
+#### A. Backend Integration Tests
+
+```kotlin
+class AuthorizationTest {
+    
+    @Test
+    fun `Admin can create product`() = testApplication {
+        // Login as admin
+        val adminToken = loginAsAdmin()
+        
+        // Create product
+        val response = client.post("/api/products") {
+            bearerAuth(adminToken)
+            contentType(ContentType.Application.Json)
+            setBody(createProductRequest)
+        }
+        
+        assertEquals(HttpStatusCode.Created, response.status)
+    }
+    
+    @Test
+    fun `Staff cannot create product`() = testApplication {
+        // Login as staff
+        val staffToken = loginAsStaff()
+        
+        // Try to create product
+        val response = client.post("/api/products") {
+            bearerAuth(staffToken)
+            contentType(ContentType.Application.Json)
+            setBody(createProductRequest)
+        }
+        
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+    
+    @Test
+    fun `Staff can view products`() = testApplication {
+        val staffToken = loginAsStaff()
+        
+        val response = client.get("/api/products") {
+            bearerAuth(staffToken)
+        }
+        
+        assertEquals(HttpStatusCode.OK, response.status)
+    }
+}
+```
+
+#### B. Android UI Tests
+
+```kotlin
+@Test
+fun adminSeesAddProductButton() {
+    composeTestRule.setContent {
+        ProductListScreen(
+            viewModel = viewModel,
+            currentUser = User(role = "ADMIN", ...)
+        )
+    }
+    
+    composeTestRule
+        .onNodeWithContentDescription("Thêm sản phẩm")
+        .assertIsDisplayed()
+}
+
+@Test
+fun staffDoesNotSeeAddProductButton() {
+    composeTestRule.setContent {
+        ProductListScreen(
+            viewModel = viewModel,
+            currentUser = User(role = "WAREHOUSE_STAFF", ...)
+        )
+    }
+    
+    composeTestRule
+        .onNodeWithContentDescription("Thêm sản phẩm")
+        .assertDoesNotExist()
+}
+```
+
+---
+
+### 9.4. Checklist triển khai
+
+#### Backend
+- [x] Tạo `AuthenticationPlugin.kt` và enable trong `Application.kt`
+- [x] Tạo `RoleBasedAuthorization.kt` với `requireAdmin()` và `requireStaffOrAdmin()`
+- [x] Áp dụng phân quyền cho `ProductRoutes.kt` (UC08-UC17)
+- [x] Áp dụng phân quyền cho `CategoryRoutes.kt` (UC18-UC22)
+- [x] Áp dụng phân quyền cho `SupplierRoutes.kt` (UC23-UC28)
+- [ ] Áp dụng phân quyền cho `InventoryRoutes.kt` (UC29-UC39)
+- [ ] Áp dụng phân quyền cho `TransactionRoutes.kt` (UC40-UC67)
+- [ ] Triển khai helper functions: `canEditTransaction()`, `canApproveTransaction()`
+- [ ] Viết integration tests cho các endpoint đã phân quyền
+- [ ] Thêm audit log cho các thao tác nhạy cảm (duyệt phiếu, điều chỉnh tồn kho)
+
+#### Android
+- [x] Cập nhật `LoginResponse` để nhận `full_name` từ backend
+- [x] Cập nhật `SessionManager` để lưu `full_name`
+- [x] Cập nhật `NavigationDrawer.kt` với logic phân quyền menu
+- [ ] Ẩn nút CRUD trong `ProductListScreen` với Staff
+- [ ] Ẩn nút CRUD trong `CategoryListScreen` với Staff
+- [ ] Ẩn nút CRUD trong `SupplierListScreen` với Staff
+- [ ] Ẩn "Báo cáo giá trị tồn kho" với Staff
+- [ ] Ẩn nút "Duyệt phiếu" với Staff trong màn hình phiếu nhập/xuất
+- [ ] Viết UI tests cho phân quyền màn hình
+
+---
+
+### 9.5. Best Practices
+
+#### 1. Backend Security
+- ✅ **Kiểm tra quyền ở backend, không tin tưởng client**
+- ✅ Trả về 403 Forbidden khi sai quyền, 401 Unauthorized khi token không hợp lệ
+- ✅ Không expose thông tin nhạy cảm trong error messages
+- ✅ Log các thao tác nhạy cảm với user_id và timestamp
+- ✅ Kiểm tra ownership khi edit/delete phiếu (người dùng chỉ sửa phiếu của mình)
+- ✅ Verify transaction status trước khi cho phép edit (chỉ DRAFT)
+
+#### 2. Android UI
+- ✅ Ẩn menu/nút không được phép để UX tốt hơn
+- ✅ Không dùng UI hiding làm biện pháp bảo vệ duy nhất
+- ✅ Hiển thị thông báo rõ ràng khi bị từ chối quyền
+- ✅ Refresh token tự động khi hết hạn
+- ✅ Logout và clear session khi nhận 401 Unauthorized
+
+#### 3. JWT Token
+- ✅ Access token hết hạn sau 1 giờ
+- ✅ Refresh token hết hạn sau 7 ngày
+- ✅ Lưu refresh token trong database để có thể revoke
+- ✅ Implement token rotation khi refresh
+- ✅ Đưa userId, email, role vào JWT claims
+
+---
+
+## 10. Tổng kết
+
+### Đã triển khai
+1. ✅ JWT Authentication với role-based authorization
+2. ✅ Backend phân quyền cho Products, Categories, Suppliers APIs
+3. ✅ Android NavigationDrawer với menu động theo role
+4. ✅ Helper functions kiểm tra ownership và transaction status
+5. ✅ Full_name field trong LoginResponse
+
+### Chưa triển khai
+1. ⏳ Phân quyền cho Inventory, Transaction, Batch, Report APIs
+2. ⏳ Ẩn nút CRUD trong các màn hình danh sách
+3. ⏳ Audit log cho thao tác nhạy cảm
+4. ⏳ Integration tests và UI tests đầy đủ
+5. ⏳ Role MANAGER (nếu cần thiết)
+
+### Tài khoản test
+```
+Admin:
+- Email: admin@warehouse.vn
+- Password: admin123
+- Email: minhchauadmin@warehouse.vn
+- Password: minhchau@123
+
+Staff:
+- Email: staff@warehouse.vn
+- Password: staff123
+```
+
+---
+
+**Tài liệu cập nhật lần cuối**: 2026-11-03  
+**Người thực hiện**: Kiro AI  
+**Phiên bản**: 1.1 - Đã triển khai phần backend và Android cơ bản

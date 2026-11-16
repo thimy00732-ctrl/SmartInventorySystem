@@ -21,6 +21,7 @@ import com.sis.android.data.model.Category
 import com.sis.android.data.model.Supplier
 import com.sis.android.data.model.User
 import com.sis.android.data.model.ManagedStaff
+import com.sis.android.data.remote.RetrofitClient
 import com.sis.android.di.AppModule
 import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
@@ -48,6 +49,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Khởi tạo RetrofitClient với context để có thể gửi JWT token
+        RetrofitClient.initialize(this)
+        
         enableEdgeToEdge()
         setContent {
             SISTheme {
@@ -61,6 +66,7 @@ class MainActivity : ComponentActivity() {
         val sessionManager = remember { AppModule.provideSessionManager(this) }
         val authRepository = remember { AppModule.provideAuthRepository(this) }
         val staffRepository = remember { AppModule.provideStaffRepository() }
+        val scope = rememberCoroutineScope()
 
         // Kiểm tra session đã lưu khi mở app
         val savedRole = remember { authRepository.getSavedRole() }
@@ -102,7 +108,14 @@ class MainActivity : ComponentActivity() {
             MainScreen(
                 currentUser = currentUser!!,
                 sessionManager = sessionManager,
-                staffRepository = staffRepository
+                staffRepository = staffRepository,
+                onLogout = {
+                    // Xử lý logout
+                    scope.launch {
+                        authRepository.logout()
+                        currentUser = null // Trigger re-composition to show login screen
+                    }
+                }
             )
         }
     }
@@ -126,7 +139,8 @@ sealed class BottomNavItem(
 fun MainScreen(
     currentUser: User,
     sessionManager: com.sis.android.data.session.SessionManager,
-    staffRepository: com.sis.android.data.repository.StaffManagementRepository
+    staffRepository: com.sis.android.data.repository.StaffManagementRepository,
+    onLogout: () -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -174,7 +188,8 @@ fun MainScreen(
                     scope.launch {
                         drawerState.close()
                     }
-                }
+                },
+                onLogout = onLogout
             )
         }
     ) {
@@ -307,6 +322,7 @@ fun MainScreen(
                     else -> {
                         AppContent(
                             currentScreen = currentScreen,
+                            currentUser = currentUser,
                             onScreenChange = { newScreen -> currentScreen = newScreen },
                             productViewModel = productViewModel,
                             categoryViewModel = categoryViewModel,
@@ -331,6 +347,7 @@ fun MainScreen(
 @Composable
 fun AppContent(
     currentScreen: String,
+    currentUser: User,
     onScreenChange: (String) -> Unit,
     productViewModel: ProductViewModel,
     categoryViewModel: CategoryViewModel,
@@ -338,6 +355,7 @@ fun AppContent(
     onMenuClick: () -> Unit
 ) {
     val categories by categoryViewModel.categoryList.collectAsState()
+    val isAdmin = currentUser.role == "ADMIN"
 
     LaunchedEffect(Unit) {
         categoryViewModel.loadCategories()
@@ -360,6 +378,7 @@ fun AppContent(
         "LIST" -> {
             ProductListScreen(
                 viewModel = productViewModel,
+                isAdmin = isAdmin,
                 onProductClick = { product ->
                     selectedProduct = product
                     onScreenChange("DETAIL")
@@ -422,6 +441,7 @@ fun AppContent(
             selectedProduct?.let { product ->
                 ProductDetailScreen(
                     product = product,
+                    isAdmin = isAdmin,
                     onBackClick = { onScreenChange("LIST") },
                     onEditClick = { editProd ->
                         productToEdit = editProd
@@ -474,6 +494,7 @@ fun AppContent(
         "CATEGORIES" -> {
             CategoryListScreen(
                 viewModel = categoryViewModel,
+                isAdmin = isAdmin,
                 onCategoryClick = { category ->
                     selectedCategory = category
                     onScreenChange("CATEGORY_DETAIL")
@@ -490,6 +511,7 @@ fun AppContent(
             selectedCategory?.let { category ->
                 CategoryDetailScreen(
                     category = category,
+                    isAdmin = isAdmin,
                     onBackClick = { onScreenChange("CATEGORIES") },
                     onEditClick = { editCat ->
                         categoryToEdit = editCat
@@ -551,6 +573,7 @@ fun AppContent(
         "SUPPLIERS" -> {
             SupplierListScreen(
                 viewModel = supplierViewModel,
+                isAdmin = isAdmin,
                 onSupplierClick = { supplier ->
                     selectedSupplier = supplier
                     onScreenChange("SUPPLIER_DETAIL")
@@ -567,6 +590,7 @@ fun AppContent(
             selectedSupplier?.let { supplier ->
                 SupplierDetailScreen(
                     supplier = supplier,
+                    isAdmin = isAdmin,
                     onBackClick = { onScreenChange("SUPPLIERS") },
                     onEditClick = { editSup ->
                         supplierToEdit = editSup

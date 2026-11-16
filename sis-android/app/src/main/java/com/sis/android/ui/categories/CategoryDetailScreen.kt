@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun CategoryDetailScreen(
     category: Category,
+    isAdmin: Boolean,
     onBackClick: () -> Unit,
     onEditClick: (Category) -> Unit,
     onDeleteClick: (Category) -> Unit,
@@ -50,12 +51,15 @@ fun CategoryDetailScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onEditClick(category) },
-                containerColor = CrudColors.Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
+            // UC20: Cập nhật danh mục - CHỈ ADMIN
+            if (isAdmin) {
+                FloatingActionButton(
+                    onClick = { onEditClick(category) },
+                    containerColor = CrudColors.Primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Chỉnh sửa")
+                }
             }
         }
     ) { padding ->
@@ -65,11 +69,14 @@ fun CategoryDetailScreen(
                 subtitle = "Chi tiết danh mục",
                 onBack = onBackClick,
                 actions = {
-                    HeaderIconButton(Icons.Default.Delete, "Xóa") {
-                        if (category.isActive) {
-                            snackbarMessage = "Vui lòng ngừng hoạt động danh mục trước khi xóa!"
-                        } else {
-                            showDeleteDialog = true
+                    // UC21: Ngừng sử dụng/Xóa danh mục - CHỈ ADMIN
+                    if (isAdmin) {
+                        HeaderIconButton(Icons.Default.Delete, "Xóa") {
+                            if (category.isActive) {
+                                snackbarMessage = "Vui lòng ngừng hoạt động danh mục trước khi xóa!"
+                            } else {
+                                showDeleteDialog = true
+                            }
                         }
                     }
                 }
@@ -109,15 +116,18 @@ fun CategoryDetailScreen(
                     }
                 }
 
-                OutlinedButton(
-                    onClick = { onToggleActiveClick(category) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = CrudStyles.ButtonShape,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (category.isActive) CrudColors.DangerAction else CrudColors.Primary
-                    )
-                ) {
-                    Text(if (category.isActive) "Ngừng hoạt động danh mục" else "Kích hoạt lại danh mục")
+                // UC21: Ngừng hoạt động/Kích hoạt lại danh mục - CHỈ ADMIN
+                if (isAdmin) {
+                    OutlinedButton(
+                        onClick = { onToggleActiveClick(category) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = CrudStyles.ButtonShape,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (category.isActive) CrudColors.DangerAction else CrudColors.Primary
+                        )
+                    ) {
+                        Text(if (category.isActive) "Ngừng hoạt động danh mục" else "Kích hoạt lại danh mục")
+                    }
                 }
             }
 

@@ -21,6 +21,7 @@ import com.sis.backend.routes.productRoutes
 import com.sis.backend.routes.supplierRoutes
 import com.sis.backend.routes.inventoryRoutes
 import com.sis.backend.routes.authRoutes
+import com.sis.backend.security.configureAuthentication
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -47,6 +48,9 @@ fun main() {
 fun Application.module() {
     // Cấu hình xử lý ngoại lệ tập trung
     configureStatusPages()
+    
+    // Cấu hình JWT Authentication (UC04, UC07)
+    configureAuthentication()
     
     install(ContentNegotiation) {
         json(

@@ -32,6 +32,7 @@ import com.sis.android.ui.components.ProductFilterBottomSheet
 @Composable
 fun ProductListScreen(
     viewModel: ProductViewModel,
+    isAdmin: Boolean,
     onProductClick: (Product) -> Unit,
     onAddClick: () -> Unit,
     onScanClick: () -> Unit,
@@ -48,6 +49,7 @@ fun ProductListScreen(
         containerColor = CrudColors.LightGreenBg,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
+            // Quét mã vạch - Cả Admin và Nhân viên đều dùng được (UC68)
             FloatingActionButton(
                 onClick = onScanClick,
                 containerColor = CrudColors.Primary,
@@ -67,11 +69,14 @@ fun ProductListScreen(
                 subtitle = if (selectedWarehouseName != null) "Xem sản phẩm theo kho" else "Danh sách sản phẩm trong kho",
                 onMenu = onMenuClick,
                 actions = {
-                    IconButton(
-                        onClick = onAddClick,
-                        modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.18f))
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Thêm", tint = Color.White)
+                    // UC08: Thêm sản phẩm - CHỈ ADMIN
+                    if (isAdmin) {
+                        IconButton(
+                            onClick = onAddClick,
+                            modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.18f))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Thêm", tint = Color.White)
+                        }
                     }
                 }
             )

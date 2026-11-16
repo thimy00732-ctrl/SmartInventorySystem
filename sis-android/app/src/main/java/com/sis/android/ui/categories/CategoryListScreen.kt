@@ -30,6 +30,7 @@ import com.sis.android.ui.components.form.ChipRow
 @Composable
 fun CategoryListScreen(
     viewModel: CategoryViewModel,
+    isAdmin: Boolean,
     onCategoryClick: (Category) -> Unit,
     onAddClick: () -> Unit,
     onMenuClick: (() -> Unit)? = null
@@ -86,12 +87,15 @@ fun CategoryListScreen(
         containerColor = CrudColors.LightGreenBg,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddClick,
-                containerColor = CrudColors.Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Thêm")
+            // UC18: Thêm danh mục - CHỈ ADMIN
+            if (isAdmin) {
+                FloatingActionButton(
+                    onClick = onAddClick,
+                    containerColor = CrudColors.Primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Thêm")
+                }
             }
         }
     ) { paddingValues ->
