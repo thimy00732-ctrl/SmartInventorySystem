@@ -476,6 +476,7 @@ fun AppContent(
 
     LaunchedEffect(Unit) {
         categoryViewModel.loadCategories()
+        supplierViewModel.loadSuppliers()  // ✅ Load suppliers
     }
 
     var isSaving by remember { mutableStateOf(false) }
@@ -543,7 +544,9 @@ fun AppContent(
                             savedProduct,
                             onSuccess = {
                                 isSaving = false
-                                onScreenChange("LIST")
+                                // ✅ Reload product từ cache để có categoryName mới
+                                selectedProduct = productViewModel.getProductById(savedProduct.productId)
+                                onScreenChange("DETAIL")
                             },
                             onError = { errorMsg ->
                                 isSaving = false

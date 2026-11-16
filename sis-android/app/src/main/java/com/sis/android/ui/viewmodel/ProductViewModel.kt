@@ -298,6 +298,11 @@ class ProductViewModel(
             }
         }
     }
+    
+    /** Lấy sản phẩm theo ID từ cache */
+    fun getProductById(productId: Long): Product? {
+        return allProductsCache.firstOrNull { it.productId == productId }
+    }
 
     fun deleteProduct(
         productId: Long,

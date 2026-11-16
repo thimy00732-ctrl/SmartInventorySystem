@@ -126,6 +126,7 @@ class ProductRepository {
                 productName = response.productName,
                 imageUrl = response.imageUrl,
                 categoryId = response.categoryId,
+                categoryName = response.categoryName ?: "Chưa phân loại",  // ✅ Thêm categoryName
                 supplierId = response.supplierId,
                 unit = response.unit,
                 costPrice = response.costPrice.toDoubleOrNull() ?: 0.0,
