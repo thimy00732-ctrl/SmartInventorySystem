@@ -37,8 +37,8 @@ class AuthService(
             ?: throw Exception("Email hoặc mật khẩu không chính xác")
 
         // Bước 2: Kiểm tra mật khẩu
-        // Dùng PasswordService.verifyPassword() để xác minh mật khẩu BCrypt
-        val isPasswordValid = PasswordService.verifyPassword(request.password, user.password_hash)
+        // So sánh plaintext trực tiếp
+        val isPasswordValid = request.password == user.password_hash
         if (!isPasswordValid) {
             throw Exception("Email hoặc mật khẩu không chính xác")
         }
@@ -123,8 +123,8 @@ class AuthService(
             throw Exception(passwordError)
         }
 
-        // Bước 4: Mã hóa mật khẩu bằng BCrypt trước khi lưu
-        val passwordHash = PasswordService.hashPassword(request.password)
+        // Bước 4: Lưu mật khẩu plaintext (không mã hóa)
+        val passwordHash = request.password
 
         // Bước 5: Tạo user object
         val newUser = User(
@@ -259,8 +259,8 @@ class AuthService(
             ?: throw Exception("Người dùng không tồn tại")
 
         // Bước 2: Kiểm tra mật khẩu cũ
-        // Dùng PasswordService.verifyPassword() để xác minh an toàn
-        val isOldPasswordValid = PasswordService.verifyPassword(request.old_password, user.password_hash)
+        // So sánh plaintext trực tiếp
+        val isOldPasswordValid = request.old_password == user.password_hash
         if (!isOldPasswordValid) {
             throw Exception("Mật khẩu cũ không chính xác")
         }
@@ -276,8 +276,8 @@ class AuthService(
             throw Exception("Mật khẩu mới phải khác mật khẩu cũ")
         }
 
-        // Bước 5: Mã hóa mật khẩu mới bằng BCrypt trước khi lưu
-        val newPasswordHash = PasswordService.hashPassword(request.new_password)
+        // Bước 5: Lưu mật khẩu mới plaintext (không mã hóa)
+        val newPasswordHash = request.new_password
 
         // Bước 6: Cập nhật database
         val updated = userRepository.updatePassword(userId, newPasswordHash)
