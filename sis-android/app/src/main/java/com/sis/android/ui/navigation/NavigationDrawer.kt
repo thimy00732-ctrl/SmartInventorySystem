@@ -448,32 +448,68 @@ private fun LogoutButton(onLogout: () -> Unit) {
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
+            containerColor = Color(0xFFFAFCF8),  // Light green background
             icon = {
-                Icon(
-                    imageVector = Icons.Default.Logout,
-                    contentDescription = null,
-                    tint = CrudColors.DangerAction
-                )
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            color = CrudColors.DangerAction.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = null,
+                        tint = CrudColors.DangerAction,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             },
             title = {
-                Text("Xác nhận đăng xuất")
+                Text(
+                    "Xác nhận đăng xuất",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1C3A0D)
+                )
             },
             text = {
-                Text("Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?")
+                Text(
+                    "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?",
+                    color = Color(0xFF4A5A3A)
+                )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showConfirmDialog = false
                         onLogout()
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CrudColors.DangerAction,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Đăng xuất", color = CrudColors.DangerAction)
+                    Text(
+                        text = "Đăng xuất",
+                        color = Color.White,  // ✅ Text màu trắng
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("Hủy")
+                TextButton(
+                    onClick = { showConfirmDialog = false },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = CrudColors.Primary  // Xanh olive
+                    )
+                ) {
+                    Text(
+                        "Hủy",
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         )

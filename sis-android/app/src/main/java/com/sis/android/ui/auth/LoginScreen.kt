@@ -443,7 +443,9 @@ fun LoginScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = DarkGreen,
-                        disabledContainerColor = DarkGreen.copy(alpha = 0.6f)
+                        contentColor = Color.White,  // ✅ Text màu trắng
+                        disabledContainerColor = DarkGreen.copy(alpha = 0.6f),
+                        disabledContentColor = Color.White.copy(alpha = 0.6f)
                     )
                 ) {
                     if (loading) {
@@ -455,6 +457,7 @@ fun LoginScreen(
                     } else {
                         Text(
                             text = "Đăng nhập",
+                            color = Color.White,  // ✅ Text màu trắng
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -464,7 +467,8 @@ fun LoginScreen(
                         Icon(
                             imageVector =
                                 Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null
+                            contentDescription = null,
+                            tint = Color.White  // ✅ Icon màu trắng
                         )
                     }
                 }
