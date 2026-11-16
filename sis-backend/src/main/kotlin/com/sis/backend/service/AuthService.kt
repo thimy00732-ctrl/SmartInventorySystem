@@ -38,7 +38,9 @@ class AuthService(
 
         // Bước 2: Kiểm tra mật khẩu
         // Dùng PasswordService.verifyPassword() để xác minh mật khẩu
-        val isPasswordValid = PasswordService.verifyPassword(request.password, user.password_hash)
+        // Bước 2: Kiểm tra mật khẩu
+        // So sánh plaintext vì password trong DB là plaintext
+        val isPasswordValid = request.password == user.password_hash
         if (!isPasswordValid) {
             throw Exception("Email hoặc mật khẩu không chính xác")
         }
