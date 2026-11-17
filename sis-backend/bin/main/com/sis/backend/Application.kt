@@ -1,0 +1,107 @@
+
+package com.sis.backend
+
+import com.sis.backend.config.DatabaseConfig
+import io.ktor.server.application.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
+import java.sql.Connection
+import javax.sql.DataSource
+import com.sis.backend.config.configureSecurity
+import com.sis.backend.repository.UserRepository
+import com.sis.backend.routes.authRoutes
+import com.sis.backend.routes.accountRoutes
+import com.sis.backend.routes.adminUserRoutes
+import com.sis.backend.security.installAccountAccessControl
+import com.sis.backend.security.JwtService
+import com.sis.backend.security.PasswordHasher
+import com.sis.backend.service.SmtpTemporaryPasswordNotifier
+import com.sis.backend.service.AuthService
+
+lateinit var dataSource: DataSource
+    private set
+
+fun main() {
+    embeddedServer(
+        Netty,
+        port = 8080,
+        host = "0.0.0.0",
+        module = Application::module
+    ).start(wait = true)
+}
+
+fun Application.module() {
+    install(ContentNegotiation) {
+        json(
+            Json {
+                prettyPrint = true
+                ignoreUnknownKeys = true
+            }
+        )
+    }
+
+    // Khởi tạo kết nối database
+    dataSource = DatabaseConfig.createDataSource()
+    configureSecurity()
+
+    val userRepository = UserRepository(dataSource)
+    val jwtService = JwtService()
+    installAccountAccessControl(userRepository, jwtService)
+
+    val authService = AuthService(
+        repository = userRepository,
+        jwtService = jwtService,
+        verifyPassword = PasswordHasher::verifyPassword,
+        hashPassword = PasswordHasher::hashPassword,
+        notifier = SmtpTemporaryPasswordNotifier(),
+        temporaryPasswordHours = System.getenv("TEMP_PASSWORD_EXPIRY_HOURS")
+            ?.toLongOrNull() ?: 24,
+        refreshTokenDays = System.getenv("REFRESH_TOKEN_EXPIRY_DAYS")
+            ?.toLongOrNull() ?: 30
+    )
+    routing {
+        get("/health") {
+            call.respond(
+                mapOf(
+                    "status" to "OK",
+                    "service" to "Smart Inventory Backend"
+                )
+            )
+        }
+
+        authRoutes(authService)
+        accountRoutes(authService)
+        adminUserRoutes(authService)
+
+        get("/health/database") {
+            try {
+                dataSource.connection.use { connection: Connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("SELECT 1").use {
+                            call.respond(
+                                mapOf(
+                                    "status" to "OK",
+                                    "database" to "connected"
+                                )
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                call.respond(
+                    io.ktor.http.HttpStatusCode.ServiceUnavailable,
+                    mapOf(
+                        "status" to "ERROR",
+                        "database" to "disconnected",
+                        "message" to (e.message ?: "Unknown database error")
+                    )
+                )
+            }
+        }
+    }
+}

@@ -28,6 +28,7 @@ dependencies {
 //mo them
 implementation("com.auth0:java-jwt:4.5.0")
 implementation("at.favre.lib:bcrypt:0.10.2")
+implementation("com.sun.mail:jakarta.mail:2.0.1")
     // MySQL connection
     implementation("com.zaxxer:HikariCP:6.3.0")
     implementation("com.mysql:mysql-connector-j:9.4.0")
@@ -36,8 +37,9 @@ implementation("at.favre.lib:bcrypt:0.10.2")
     implementation("ch.qos.logback:logback-classic:1.5.18")
 
     // Testing
-    testImplementation(kotlin("test"))
+    testImplementation(kotlin("test-junit5"))
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.3.1")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.3")
 }
 
 kotlin {
@@ -51,4 +53,8 @@ kotlin {
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(24)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

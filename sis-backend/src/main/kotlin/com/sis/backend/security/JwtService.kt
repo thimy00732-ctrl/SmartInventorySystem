@@ -7,7 +7,7 @@ import java.util.Date
 
 class JwtService(
     private val secret: String = System.getenv("JWT_SECRET")
-        ?: "dev-only-secret-change-before-deployment-2026",
+        ?: error("Thiếu biến môi trường JWT_SECRET"),
     private val issuer: String = System.getenv("JWT_ISSUER")
         ?: "smart-inventory-backend",
     private val audience: String = System.getenv("JWT_AUDIENCE")

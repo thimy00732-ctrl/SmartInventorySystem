@@ -16,8 +16,11 @@ import com.sis.backend.config.configureSecurity
 import com.sis.backend.repository.UserRepository
 import com.sis.backend.routes.authRoutes
 import com.sis.backend.routes.accountRoutes
+import com.sis.backend.routes.adminUserRoutes
+import com.sis.backend.security.installAccountAccessControl
 import com.sis.backend.security.JwtService
 import com.sis.backend.security.PasswordHasher
+import com.sis.backend.service.SmtpTemporaryPasswordNotifier
 import com.sis.backend.service.AuthService
 
 lateinit var dataSource: DataSource
@@ -44,16 +47,23 @@ fun Application.module() {
 
     // Khởi tạo kết nối database
     dataSource = DatabaseConfig.createDataSource()
-//moi them
-configureSecurity()
+    configureSecurity()
 
-val userRepository = UserRepository(dataSource)
+    val userRepository = UserRepository(dataSource)
+    val jwtService = JwtService()
+    installAccountAccessControl(userRepository, jwtService)
 
-val authService = AuthService(
-    repository = userRepository,
-    jwtService = JwtService(),
-    verifyPassword = PasswordHasher::verifyPassword
-)
+    val authService = AuthService(
+        repository = userRepository,
+        jwtService = jwtService,
+        verifyPassword = PasswordHasher::verifyPassword,
+        hashPassword = PasswordHasher::hashPassword,
+        notifier = SmtpTemporaryPasswordNotifier(),
+        temporaryPasswordHours = System.getenv("TEMP_PASSWORD_EXPIRY_HOURS")
+            ?.toLongOrNull() ?: 24,
+        refreshTokenDays = System.getenv("REFRESH_TOKEN_EXPIRY_DAYS")
+            ?.toLongOrNull() ?: 30
+    )
     routing {
         get("/health") {
             call.respond(
@@ -62,9 +72,11 @@ val authService = AuthService(
                     "service" to "Smart Inventory Backend"
                 )
             )
-            authRoutes(authService)
-accountRoutes(authService)
         }
+
+        authRoutes(authService)
+        accountRoutes(authService)
+        adminUserRoutes(authService)
 
         get("/health/database") {
             try {

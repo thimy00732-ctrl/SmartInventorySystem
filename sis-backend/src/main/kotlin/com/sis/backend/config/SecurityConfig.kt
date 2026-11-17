@@ -10,7 +10,7 @@ import io.ktor.server.auth.jwt.jwt
 
 fun Application.configureSecurity() {
     val secret = System.getenv("JWT_SECRET")
-        ?: "dev-only-secret-change-before-deployment-2026"
+        ?: error("Thiếu biến môi trường JWT_SECRET")
     val issuer = System.getenv("JWT_ISSUER")
         ?: "smart-inventory-backend"
     val audience = System.getenv("JWT_AUDIENCE")

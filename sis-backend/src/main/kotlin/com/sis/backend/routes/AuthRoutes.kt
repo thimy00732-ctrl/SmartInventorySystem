@@ -1,10 +1,12 @@
 package com.sis.backend.routes
 
-import com.sis.backend.dto.ApiErrorResponse
 import com.sis.backend.dto.LoginRequest
 import com.sis.backend.dto.LogoutResponse
+import com.sis.backend.dto.RefreshRequest
+import com.sis.backend.security.authenticatedUser
 import com.sis.backend.service.AuthService
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -14,29 +16,33 @@ import io.ktor.server.routing.route
 fun Route.authRoutes(authService: AuthService) {
     route("/api/auth") {
         post("/login") {
-            try {
-                val request = call.receive<LoginRequest>()
-                call.respond(HttpStatusCode.OK, authService.login(request))
-            } catch (e: IllegalArgumentException) {
-                call.respond(
-                    HttpStatusCode.Unauthorized,
-                    ApiErrorResponse(message = e.message ?: "Đăng nhập thất bại")
-                )
-            } catch (_: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    ApiErrorResponse(message = "Lỗi xử lý đăng nhập")
-                )
+            call.respondAuthOperation {
+                val request = receive<LoginRequest>()
+                respond(HttpStatusCode.OK, authService.login(request))
             }
         }
 
-        post("/logout") {
-            call.respond(
-                HttpStatusCode.OK,
-                LogoutResponse(
-                    "Đăng xuất thành công. Hãy xóa access token phía client."
-                )
-            )
+        post("/refresh") {
+            call.respondAuthOperation {
+                val request = receive<RefreshRequest>()
+                respond(HttpStatusCode.OK, authService.refresh(request.refreshToken))
+            }
+        }
+
+        authenticate("auth-jwt") {
+            post("/logout") {
+                call.respondAuthOperation {
+                    val userId = authenticatedUser()?.userId
+                        ?: throw com.sis.backend.exception.AuthException(
+                            HttpStatusCode.Unauthorized,
+                            "INVALID_ACCESS_TOKEN",
+                            "Token không hợp lệ"
+                        )
+                    val request = receive<RefreshRequest>()
+                    authService.logout(userId, request.refreshToken)
+                    respond(HttpStatusCode.OK, LogoutResponse("Đăng xuất thành công"))
+                }
+            }
         }
     }
 }
