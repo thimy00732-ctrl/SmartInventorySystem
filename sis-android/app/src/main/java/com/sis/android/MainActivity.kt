@@ -1,19 +1,14 @@
+
 package com.sis.android
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sis.android.data.model.ManagedStaff
-import com.sis.android.di.AppModule
-import com.sis.android.ui.auth.LoginScreen
-import com.sis.android.ui.staffmanagement.StaffManagementDetailScreen
-import com.sis.android.ui.staffmanagement.StaffManagementFormScreen
-import com.sis.android.ui.staffmanagement.StaffManagementListScreen
-import com.sis.android.ui.staffmanagement.StaffManagementViewModel
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+import com.sis.android.ui.inventory.InventoryScreen
+import com.sis.android.ui.inventory.InventoryUiItem
 
 class MainActivity : ComponentActivity() {
 
@@ -22,108 +17,128 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                AppNavigator()
-            }
-        }
-    }
-
-    @Composable
-    private fun AppNavigator() {
-        val sessionManager = remember { AppModule.provideSessionManager(this) }
-        val staffRepository = remember { AppModule.provideStaffRepository() }
-
-        // Kiểm tra session đã lưu khi mở app
-        var currentRole by remember {
-            mutableStateOf(
-                AppModule.provideAuthRepository(this).getSavedRole()
-            )
-        }
-
-        if (currentRole == null) {
-            // Chưa đăng nhập → hiện màn hình Login
-            LoginScreen(
-                onLoginSuccess = { role ->
-                    currentRole = role
-                }
-            )
-        } else {
-            // Đã đăng nhập → hiện Staff Management
-            val isAdmin = currentRole == "ADMIN"
-
-            val staffViewModel: StaffManagementViewModel = viewModel(
-                factory = StaffManagementViewModel.Factory(
-                    repository = staffRepository,
-                    sessionManager = sessionManager
-                )
-            )
-
-            val uiState by staffViewModel.uiState.collectAsStateWithLifecycle()
-
-            var selectedStaff by remember { mutableStateOf<ManagedStaff?>(null) }
-            var showAddForm by remember { mutableStateOf(false) }
-            var showEditForm by remember { mutableStateOf(false) }
-
-            when {
-                // Màn hình thêm nhân viên
-                showAddForm -> {
-                    StaffManagementFormScreen(
-                        staff = null,
-                        isLoading = uiState.isLoading,
-                        onBack = { showAddForm = false },
-                        onSave = { fullName, email, phone, password, role ->
-                            staffViewModel.addStaff(fullName, email, phone, password, role)
-                            showAddForm = false
-                        }
-                    )
-                }
-
-                // Màn hình chỉnh sửa nhân viên
-                showEditForm && selectedStaff != null -> {
-                    StaffManagementFormScreen(
-                        staff = selectedStaff,
-                        isLoading = uiState.isLoading,
-                        onBack = { showEditForm = false },
-                        onSave = { fullName, email, phone, _, role ->
-                            val updated = selectedStaff!!.copy(
-                                fullName = fullName,
-                                email = email,
-                                phone = phone,
-                                role = role
-                            )
-                            staffViewModel.updateStaff(updated)
-                            selectedStaff = updated
-                            showEditForm = false
-                        }
-                    )
-                }
-
-                // Màn hình chi tiết nhân viên
-                selectedStaff != null -> {
-                    // Đồng bộ selectedStaff với dữ liệu mới nhất từ ViewModel
-                    val latestStaff = uiState.staff.find { it.id == selectedStaff!!.id }
-                        ?: selectedStaff!!
-
-                    StaffManagementDetailScreen(
-                        staff = latestStaff,
-                        isAdmin = isAdmin,
-                        onBack = { selectedStaff = null },
-                        onEdit = { showEditForm = true },
-                        onToggleActive = {
-                            staffViewModel.toggleActive(latestStaff)
-                        }
-                    )
-                }
-
-                // Màn hình danh sách nhân viên
-                else -> {
-                    StaffManagementListScreen(
-                        isAdmin = isAdmin,
-                        viewModel = staffViewModel,
-                        onAddStaff = { showAddForm = true },
-                        onOpenStaff = { staff -> selectedStaff = staff }
+                Surface(
+                    color = Color(0xFFEAF0F5)
+                ) {
+                    InventoryScreen(
+                        isAdmin = true,
+                        inventoryList = sampleInventory
                     )
                 }
             }
         }
     }
 }
+
+private val sampleInventory = listOf(
+
+    InventoryUiItem(
+        inventoryId = 1,
+        productId = 1,
+        sku = "SP001",
+        productName = "Bàn phím cơ",
+        categoryName = "Điện tử",
+        stockQuantity = 100,
+        minStock = 10,
+        maxStock = 500
+    ),
+
+    InventoryUiItem(
+        inventoryId = 2,
+        productId = 2,
+        sku = "SP002",
+        productName = "Chuột không dây",
+        categoryName = "Phụ kiện",
+        stockQuantity = 200,
+        minStock = 20,
+        maxStock = 600
+    ),
+
+    InventoryUiItem(
+        inventoryId = 3,
+        productId = 3,
+        sku = "SP003",
+        productName = "Giấy A4",
+        categoryName = "Văn phòng phẩm",
+        stockQuantity = 300,
+        minStock = 50,
+        maxStock = 1000
+    ),
+
+    InventoryUiItem(
+        inventoryId = 4,
+        productId = 4,
+        sku = "SP004",
+        productName = "USB 64GB",
+        categoryName = "Phụ kiện",
+        stockQuantity = 150,
+        minStock = 15,
+        maxStock = 400
+    ),
+
+    InventoryUiItem(
+        inventoryId = 5,
+        productId = 5,
+        sku = "SP005",
+        productName = "Tai nghe",
+        categoryName = "Điện tử",
+        stockQuantity = 80,
+        minStock = 10,
+        maxStock = 300
+    ),
+
+    InventoryUiItem(
+        inventoryId = 6,
+        productId = 6,
+        sku = "SP006",
+        productName = "Dây điện",
+        categoryName = "Dụng cụ cơ khí",
+        stockQuantity = 120,
+        minStock = 10,
+        maxStock = 200
+    ),
+
+    InventoryUiItem(
+        inventoryId = 7,
+        productId = 7,
+        sku = "SP007",
+        productName = "Nước suối",
+        categoryName = "Đồ uống",
+        stockQuantity = 250,
+        minStock = 30,
+        maxStock = 800
+    ),
+
+    InventoryUiItem(
+        inventoryId = 8,
+        productId = 8,
+        sku = "SP008",
+        productName = "Găng tay bảo hộ",
+        categoryName = "Bảo hộ lao động",
+        stockQuantity = 400,
+        minStock = 50,
+        maxStock = 1000
+    ),
+
+    InventoryUiItem(
+        inventoryId = 9,
+        productId = 9,
+        sku = "SP009",
+        productName = "Nước lau sàn",
+        categoryName = "Dụng cụ vệ sinh",
+        stockQuantity = 180,
+        minStock = 20,
+        maxStock = 500
+    ),
+
+    InventoryUiItem(
+        inventoryId = 10,
+        productId = 10,
+        sku = "SP010",
+        productName = "Ổ cắm điện",
+        categoryName = "Đồ gia dụng",
+        stockQuantity = 90,
+        minStock = 15,
+        maxStock = 300
+    )
+)
