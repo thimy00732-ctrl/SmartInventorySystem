@@ -160,7 +160,7 @@ class StockLedgerRepository(
             // Tính total items
             val totalItems = conn.prepareStatement(countSql).use { stmt ->
                 bindDateParameters(stmt, fromDate, toExclusive)
-                bindFilterParameters(stmt, 11, filterParams)
+                /*Update*/ bindFilterParameters(stmt, 12, filterParams) // Start after 11 date params
                 
                 stmt.executeQuery().use { rs ->
                     if (rs.next()) rs.getLong(1) else 0L
@@ -170,9 +170,9 @@ class StockLedgerRepository(
             // Lấy items
             val items = conn.prepareStatement(dataSql).use { stmt ->
                 bindDateParameters(stmt, fromDate, toExclusive)
-                bindFilterParameters(stmt, 11, filterParams)
-                stmt.setInt(11 + filterParams.size, size)
-                stmt.setInt(11 + filterParams.size + 1, offset)
+                /*Update*/ bindFilterParameters(stmt, 12, filterParams) // Start after 11 date params
+                stmt.setInt(12 + filterParams.size, size)
+                stmt.setInt(12 + filterParams.size + 1, offset)
                 
                 stmt.executeQuery().use { rs ->
                     buildList {
@@ -336,28 +336,29 @@ class StockLedgerRepository(
     }
     
     /**
-     * Bind date parameters (10 lần: fromDate và toExclusive).
+     * Bind date parameters (11 lần: fromDate và toExclusive).
+     * /*Update*/ Fixed: CTE has 11 date parameters, not 10
      */
     private fun bindDateParameters(
         stmt: java.sql.PreparedStatement,
         fromDate: LocalDate,
         toExclusive: LocalDate
     ) {
-        // CTE có 10 tham số date: fromDate (x5), toExclusive (x5)
+        // CTE có 11 tham số date: fromDate (x6), toExclusive (x5)
         val fromStr = fromDate.toString()
         val toStr = toExclusive.toString()
         
-        stmt.setString(1, fromStr)   // net_since_from
-        stmt.setString(2, fromStr)   // import_qty check 1
-        stmt.setString(3, toStr)     // import_qty check 2
-        stmt.setString(4, fromStr)   // export_qty check 1
-        stmt.setString(5, toStr)     // export_qty check 2
-        stmt.setString(6, fromStr)   // transfer_in check 1
-        stmt.setString(7, toStr)     // transfer_in check 2
-        stmt.setString(8, fromStr)   // transfer_out check 1
-        stmt.setString(9, toStr)     // transfer_out check 2
-        stmt.setString(10, fromStr)  // adjust check 1
-        stmt.setString(11, toStr)    // adjust check 2
+        stmt.setString(1, fromStr)   // net_since_from >= fromDate
+        stmt.setString(2, fromStr)   // import_qty >= fromDate
+        stmt.setString(3, toStr)     // import_qty < toExclusive
+        stmt.setString(4, fromStr)   // export_qty >= fromDate
+        stmt.setString(5, toStr)     // export_qty < toExclusive
+        stmt.setString(6, fromStr)   // transfer_in >= fromDate
+        stmt.setString(7, toStr)     // transfer_in < toExclusive
+        stmt.setString(8, fromStr)   // transfer_out >= fromDate
+        stmt.setString(9, toStr)     // transfer_out < toExclusive
+        stmt.setString(10, fromStr)  // adjust >= fromDate
+        stmt.setString(11, toStr)    // adjust < toExclusive
     }
     
     /**

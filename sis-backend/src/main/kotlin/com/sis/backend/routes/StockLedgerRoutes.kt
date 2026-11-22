@@ -35,16 +35,43 @@ fun Route.stockLedgerRoutes(
                 val fromDateStr = call.request.queryParameters["fromDate"]
                 val toDateStr = call.request.queryParameters["toDate"]
                 
+                // Validation: fromDate and toDate are required
+                if (fromDateStr.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "fromDate là bắt buộc (định dạng yyyy-MM-dd)"
+                    ))
+                    return@get
+                }
+                
+                if (toDateStr.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "toDate là bắt buộc (định dạng yyyy-MM-dd)"
+                    ))
+                    return@get
+                }
+                
                 val fromDate = try {
-                    fromDateStr?.let { LocalDate.parse(it) }
+                    LocalDate.parse(fromDateStr)
                 } catch (e: DateTimeParseException) {
-                    throw IllegalArgumentException("fromDate phải có định dạng yyyy-MM-dd")
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "fromDate phải có định dạng yyyy-MM-dd"
+                    ))
+                    return@get
+                    null
                 }
                 
                 val toDate = try {
-                    toDateStr?.let { LocalDate.parse(it) }
+                    LocalDate.parse(toDateStr)
                 } catch (e: DateTimeParseException) {
-                    throw IllegalArgumentException("toDate phải có định dạng yyyy-MM-dd")
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "toDate phải có định dạng yyyy-MM-dd"
+                    ))
+                    return@get
+                    null
                 }
                 
                 val warehouseId = call.request.queryParameters["warehouseId"]?.toLongOrNull()

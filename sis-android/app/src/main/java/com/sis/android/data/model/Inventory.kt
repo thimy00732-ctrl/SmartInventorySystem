@@ -102,3 +102,125 @@ enum class InventorySortBy {
     STOCK_QUANTITY,
     EXPIRY_DATE
 }
+
+/*
+ * Alert models for UC34-UC35
+ */
+data class LowStockAlert(
+    @SerializedName("productId", alternate = ["product_id"]) val productId: Long,
+    @SerializedName("sku") val sku: String,
+    @SerializedName("productName", alternate = ["product_name"]) val productName: String,
+    @SerializedName("unit") val unit: String,
+    @SerializedName("supplierId", alternate = ["supplier_id"]) val supplierId: Long?,
+    @SerializedName("supplierName", alternate = ["supplier_name"]) val supplierName: String?,
+    @SerializedName("totalStock", alternate = ["total_stock"]) val totalStock: Int,
+    @SerializedName("minStock", alternate = ["min_stock"]) val minStock: Int,
+    @SerializedName("missingQuantity", alternate = ["missing_quantity"]) val missingQuantity: Int,
+    @SerializedName("level") val level: String // "OUT_OF_STOCK" | "LOW"
+)
+
+data class OverStockAlert(
+    @SerializedName("productId", alternate = ["product_id"]) val productId: Long,
+    @SerializedName("sku") val sku: String,
+    @SerializedName("productName", alternate = ["product_name"]) val productName: String,
+    @SerializedName("unit") val unit: String,
+    @SerializedName("totalStock", alternate = ["total_stock"]) val totalStock: Int,
+    @SerializedName("maxStock", alternate = ["max_stock"]) val maxStock: Int,
+    @SerializedName("excessQuantity", alternate = ["excess_quantity"]) val excessQuantity: Int,
+    @SerializedName("excessPercent", alternate = ["excess_percent"]) val excessPercent: String?
+)
+
+data class AlertSummary(
+    @SerializedName("lowStockCount", alternate = ["low_stock_count"]) val lowStockCount: Int,
+    @SerializedName("outOfStockCount", alternate = ["out_of_stock_count"]) val outOfStockCount: Int,
+    @SerializedName("overStockCount", alternate = ["over_stock_count"]) val overStockCount: Int
+)
+
+/*
+ * Threshold models for UC33
+ */
+data class ThresholdProduct(
+    @SerializedName("productId", alternate = ["product_id"]) val productId: Long,
+    @SerializedName("sku") val sku: String,
+    @SerializedName("productName", alternate = ["product_name"]) val productName: String,
+    @SerializedName("unit") val unit: String,
+    @SerializedName("totalStock", alternate = ["total_stock"]) val totalStock: Int,
+    @SerializedName("totalReserved", alternate = ["total_reserved"]) val totalReserved: Int,
+    @SerializedName("totalAvailable", alternate = ["total_available"]) val totalAvailable: Int,
+    @SerializedName("minStock", alternate = ["min_stock"]) val minStock: Int,
+    @SerializedName("maxStock", alternate = ["max_stock"]) val maxStock: Int,
+    @SerializedName("alertLevel", alternate = ["alert_level"]) val alertLevel: String // LOW_STOCK, OVER_STOCK, OK
+)
+
+data class UpdateThresholdRequest(
+    @SerializedName("minStock") val minStock: Int,
+    @SerializedName("maxStock") val maxStock: Int
+)
+
+/*
+ * Stock Ledger models for UC36
+ */
+data class StockLedgerEntry(
+    @SerializedName("warehouseId", alternate = ["warehouse_id"]) val warehouseId: Long,
+    @SerializedName("warehouseName", alternate = ["warehouse_name"]) val warehouseName: String,
+    @SerializedName("productId", alternate = ["product_id"]) val productId: Long,
+    @SerializedName("sku") val sku: String,
+    @SerializedName("productName", alternate = ["product_name"]) val productName: String,
+    @SerializedName("unit") val unit: String,
+    @SerializedName("openingQty", alternate = ["opening_qty"]) val openingQty: BigDecimal,
+    @SerializedName("importQty", alternate = ["import_qty"]) val importQty: BigDecimal,
+    @SerializedName("exportQty", alternate = ["export_qty"]) val exportQty: BigDecimal,
+    @SerializedName("transferInQty", alternate = ["transfer_in_qty"]) val transferInQty: BigDecimal,
+    @SerializedName("transferOutQty", alternate = ["transfer_out_qty"]) val transferOutQty: BigDecimal,
+    @SerializedName("adjustNet", alternate = ["adjust_net"]) val adjustNet: BigDecimal,
+    @SerializedName("closingQty", alternate = ["closing_qty"]) val closingQty: BigDecimal
+)
+
+data class StockLedgerResponse(
+    @SerializedName("items") val items: List<StockLedgerEntry>,
+    @SerializedName("page") val page: Int,
+    @SerializedName("size") val size: Int,
+    @SerializedName("totalItems", alternate = ["total_items"]) val totalItems: Long,
+    @SerializedName("totalPages", alternate = ["total_pages"]) val totalPages: Int
+)
+
+/*
+ * Valuation models for UC39
+ */
+data class ValuationDetail(
+    @SerializedName("warehouseId", alternate = ["warehouse_id"]) val warehouseId: Long,
+    @SerializedName("warehouseName", alternate = ["warehouse_name"]) val warehouseName: String,
+    @SerializedName("productId", alternate = ["product_id"]) val productId: Long,
+    @SerializedName("sku") val sku: String,
+    @SerializedName("productName", alternate = ["product_name"]) val productName: String,
+    @SerializedName("totalQuantity", alternate = ["total_quantity"]) val totalQuantity: Int,
+    @SerializedName("currentCostPrice", alternate = ["current_cost_price"]) val currentCostPrice: BigDecimal,
+    @SerializedName("stockValue", alternate = ["stock_value"]) val stockValue: BigDecimal
+)
+
+data class ValuationSummary(
+    @SerializedName("totalValue", alternate = ["total_value"]) val totalValue: BigDecimal,
+    @SerializedName("totalQuantity", alternate = ["total_quantity"]) val totalQuantity: Int,
+    @SerializedName("productCount", alternate = ["product_count"]) val productCount: Int
+)
+
+data class ValuationResponse(
+    @SerializedName("items") val items: List<ValuationDetail>,
+    @SerializedName("total") val total: BigDecimal,
+    @SerializedName("summary") val summary: ValuationSummary?,
+    @SerializedName("page") val page: Int,
+    @SerializedName("size") val size: Int,
+    @SerializedName("totalItems", alternate = ["total_items"]) val totalItems: Long,
+    @SerializedName("totalPages", alternate = ["total_pages"]) val totalPages: Int
+)
+
+/*
+ * Inventory page response for UC29
+ */
+data class InventoryPageResponse(
+    @SerializedName("items") val items: List<InventoryItem>,
+    @SerializedName("page") val page: Int,
+    @SerializedName("size") val size: Int,
+    @SerializedName("totalItems", alternate = ["total_items"]) val totalItems: Long,
+    @SerializedName("totalPages", alternate = ["total_pages"]) val totalPages: Int
+)

@@ -5,26 +5,39 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sis.android.data.remote.ApiService
+import com.sis.android.data.repository.InventoryRepository
+import com.sis.android.ui.viewmodel.InventoryViewModel
 
-/*
- * Điều phối màn hình trong module tồn kho và giữ ngưỡng mẫu dùng chung
- * để sau khi lưu, danh sách cảnh báo được tính lại ngay.
+/**
+ * Điều phối navigation cho Inventory Module
+ * Tạo ViewModel manually và quản lý navigation giữa các màn hình
  */
 @Composable
 fun InventoryModuleHost(
     onGoToProducts: () -> Unit,
-    userRole: InventoryUserRole = InventoryUserRole.WAREHOUSE_STAFF
+    userRole: InventoryUserRole = InventoryUserRole.WAREHOUSE_STAFF,
+    apiService: ApiService
 ) {
+    // Create ViewModel
+    val viewModel: InventoryViewModel = viewModel(
+        factory = InventoryViewModelFactory(
+            repository = InventoryRepository(apiService)
+        )
+    )
+    
     var currentScreen by remember { mutableStateOf(InventoryModuleScreen.LIST) }
-    var thresholdProducts by remember { mutableStateOf(InventoryMockData.thresholdProducts()) }
-    val inventoryItems = remember { InventoryMockData.data() }
-    val valuationRows = remember { InventoryMockData.valuationRows(inventoryItems) }
-    val canUpdateReserved = InventoryRolePolicy.canUpdateReserved(userRole)
+    
+    // Permission checks
     val canManageThresholds = InventoryRolePolicy.canManageThresholds(userRole)
     val canViewValuation = InventoryRolePolicy.canViewValuation(userRole)
 
     when (currentScreen) {
         InventoryModuleScreen.LIST -> InventoryScreen(
+            viewModel = viewModel,
             onGoToProducts = onGoToProducts,
             onGoToAlerts = { currentScreen = InventoryModuleScreen.ALERTS },
             onGoToThresholds = {
@@ -33,72 +46,47 @@ fun InventoryModuleHost(
             onGoToValuation = {
                 if (canViewValuation) currentScreen = InventoryModuleScreen.VALUATION
             },
-            canUpdateReserved = canUpdateReserved,
-            canManageThresholds = canManageThresholds,
-            canViewValuation = canViewValuation,
-            thresholdProducts = thresholdProducts
+            onGoToStockLedger = { currentScreen = InventoryModuleScreen.STOCK_LEDGER }
         )
 
         InventoryModuleScreen.ALERTS -> InventoryAlertsScreen(
-            products = thresholdProducts,
-            inventoryItems = inventoryItems,
+            viewModel = viewModel,
             canManageThresholds = canManageThresholds,
-            canViewValuation = canViewValuation,
             onBack = { currentScreen = InventoryModuleScreen.LIST },
             onGoToThresholds = {
                 if (canManageThresholds) currentScreen = InventoryModuleScreen.THRESHOLDS
-            },
-            onGoToValuation = {
-                if (canViewValuation) currentScreen = InventoryModuleScreen.VALUATION
             }
         )
 
         InventoryModuleScreen.THRESHOLDS -> {
             if (canManageThresholds) {
                 InventoryThresholdScreen(
-                    products = thresholdProducts,
-                    canEditThresholds = canManageThresholds,
-                    onBack = { currentScreen = InventoryModuleScreen.LIST },
-                    onSaveThresholds = { productId, minStock, maxStock ->
-                        thresholdProducts = thresholdProducts.map { product ->
-                            if (product.productId == productId) {
-                                product.copy(minStock = minStock, maxStock = maxStock)
-                            } else {
-                                product
-                            }
-                        }
-                    }
+                    viewModel = viewModel,
+                    onBack = { currentScreen = InventoryModuleScreen.LIST }
                 )
             } else {
-                InventoryScreen(
-                    onGoToProducts = onGoToProducts,
-                    onGoToAlerts = { currentScreen = InventoryModuleScreen.ALERTS },
-                    canUpdateReserved = canUpdateReserved,
-                    canViewValuation = canViewValuation,
-                    onGoToValuation = { currentScreen = InventoryModuleScreen.VALUATION },
-                    thresholdProducts = thresholdProducts
-                )
+                // Redirect to main if no permission
+                currentScreen = InventoryModuleScreen.LIST
             }
         }
 
         InventoryModuleScreen.VALUATION -> {
             if (canViewValuation) {
                 InventoryValuationScreen(
-                    rows = valuationRows,
+                    viewModel = viewModel,
                     userRole = userRole,
                     onBack = { currentScreen = InventoryModuleScreen.LIST }
                 )
             } else {
-                InventoryScreen(
-                    onGoToProducts = onGoToProducts,
-                    onGoToAlerts = { currentScreen = InventoryModuleScreen.ALERTS },
-                    canUpdateReserved = canUpdateReserved,
-                    canManageThresholds = canManageThresholds,
-                    canViewValuation = canViewValuation,
-                    thresholdProducts = thresholdProducts
-                )
+                // Redirect to main if no permission
+                currentScreen = InventoryModuleScreen.LIST
             }
         }
+        
+        InventoryModuleScreen.STOCK_LEDGER -> StockLedgerScreen(
+            viewModel = viewModel,
+            onBack = { currentScreen = InventoryModuleScreen.LIST }
+        )
     }
 }
 
@@ -106,5 +94,19 @@ private enum class InventoryModuleScreen {
     LIST,
     ALERTS,
     THRESHOLDS,
-    VALUATION
+    VALUATION,
+    STOCK_LEDGER
+}
+
+// ViewModel Factory
+class InventoryViewModelFactory(
+    private val repository: InventoryRepository
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(InventoryViewModel::class.java)) {
+            return InventoryViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
 }

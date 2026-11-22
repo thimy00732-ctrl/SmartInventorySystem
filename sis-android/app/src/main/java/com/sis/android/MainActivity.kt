@@ -18,6 +18,7 @@ import com.sis.android.ui.theme.SISTheme
 import com.sis.android.ui.viewmodel.ProductViewModel
 import com.sis.android.ui.viewmodel.CategoryViewModel
 import androidx.activity.enableEdgeToEdge
+import com.sis.android.data.remote.RetrofitClient
 
 /*
  * Activity chính của ứng dụng Android.
@@ -57,7 +58,8 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "INVENTORY_LIST" -> {
                             InventoryModuleHost(
-                                onGoToProducts = { currentScreen = "LIST" }
+                                onGoToProducts = { currentScreen = "LIST" },
+                                apiService = RetrofitClient.apiService
                             )
                         }
                         "LIST" -> {

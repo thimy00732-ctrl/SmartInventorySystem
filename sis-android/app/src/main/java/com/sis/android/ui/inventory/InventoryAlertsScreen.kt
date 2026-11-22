@@ -1,363 +1,367 @@
 package com.sis.android.ui.inventory
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sis.android.data.model.InventoryItem
-import com.sis.android.data.model.InventoryThresholdProduct
+import com.sis.android.data.model.LowStockAlert
+import com.sis.android.data.model.OverStockAlert
+import com.sis.android.ui.components.display.AppCard
+import com.sis.android.ui.components.display.Pagination
 import com.sis.android.ui.components.layout.AppHeader
 import com.sis.android.ui.theme.Dimens
 import com.sis.android.ui.theme.color.CrudColors
-import com.sis.android.ui.theme.style.CrudStyles
-import java.util.Locale
+import com.sis.android.ui.viewmodel.AlertUiState
+import com.sis.android.ui.viewmodel.InventoryViewModel
 
-/*
- * Trang UC34/UC35 gom cảnh báo tồn thấp và vượt mức thành hai tab.
- * Dữ liệu hiện lấy từ mock; danh sách được tổng hợp theo sản phẩm và ngưỡng.
+/**
+ * UC34-35: Màn hình Cảnh báo Tồn kho
+ * Tabs: Tồn thấp / Vượt mức
  */
 @Composable
 fun InventoryAlertsScreen(
-    products: List<InventoryThresholdProduct>,
-    inventoryItems: List<InventoryItem>,
+    viewModel: InventoryViewModel,
     canManageThresholds: Boolean,
-    canViewValuation: Boolean,
     onBack: () -> Unit,
-    onGoToThresholds: () -> Unit,
-    onGoToValuation: () -> Unit,
-    isLoading: Boolean = false,
-    errorMessage: String? = null,
-    onRetry: () -> Unit = {}
+    onGoToThresholds: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
-    var keyword by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Tất cả danh mục") }
-    var selectedSupplier by remember { mutableStateOf("Tất cả nhà cung cấp") }
-    var selectedProductId by remember { mutableStateOf<Long?>(null) }
+    val alertUiState by viewModel.alertUiState.collectAsState()
+    
+    var selectedTab by remember { mutableStateOf(0) } // 0=Low, 1=Over
+    
+    // Client-side pagination state
+    var currentLowStockPage by remember { mutableStateOf(1) }
+    var currentOverStockPage by remember { mutableStateOf(1) }
+    val pageSize = 10
 
-    val activeProducts = products.filter { it.isActive }
-    val lowStockProducts = InventoryThresholdRules.lowStock(activeProducts)
-    val overStockProducts = InventoryThresholdRules.overStock(activeProducts)
-    val outOfStockCount = lowStockProducts.count { it.totalStock == 0 }
-
-    val categories = activeProducts.map { it.categoryName }.distinct().sorted()
-    val suppliers = activeProducts.map { it.supplierName }.distinct().sorted()
-    val visibleLowStock = lowStockProducts.filter {
-        it.matchesAlertFilter(keyword, selectedCategory, selectedSupplier)
-    }
-    val visibleOverStock = overStockProducts.filter {
-        it.matchesAlertFilter(keyword, selectedCategory, selectedSupplier)
+    // Load alerts on first composition
+    LaunchedEffect(Unit) {
+        viewModel.loadAlerts()
     }
 
     Scaffold(
         containerColor = CrudColors.LightGreenBg,
-        topBar = {
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(paddingValues)
+        ) {
+            // Header
             AppHeader(
                 title = "Cảnh báo tồn kho",
                 subtitle = "Theo dõi sản phẩm tồn thấp và vượt mức",
                 actions = {
                     if (canManageThresholds) {
                         TextButton(onClick = onGoToThresholds) {
-                            Text("Thiết lập ngưỡng", color = Color.White)
-                        }
-                    }
-                    if (canViewValuation) {
-                        TextButton(onClick = onGoToValuation) {
-                            Text("Giá trị", color = Color.White)
+                            Text("Ngưỡng", color = Color.White, fontSize = 13.sp)
                         }
                     }
                     TextButton(onClick = onBack) {
-                        Text("Quay lại", color = Color.White)
+                        Text("Quay lại", color = Color.White, fontSize = 13.sp)
                     }
                 }
             )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = Dimens.ScreenPadding, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Summary card
+                when (val state = alertUiState) {
+                    is AlertUiState.Success -> {
+                        state.summary?.let { summary ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceAround
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            "${summary.lowStockCount}",
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CrudColors.WarnText
+                                        )
+                                        Text("Tồn thấp", fontSize = 12.sp, color = CrudColors.TextSecondary)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            "${summary.outOfStockCount}",
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CrudColors.DangerAction
+                                        )
+                                        Text("Hết hàng", fontSize = 12.sp, color = CrudColors.TextSecondary)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            "${summary.overStockCount}",
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CrudColors.Primary
+                                        )
+                                        Text("Vượt mức", fontSize = 12.sp, color = CrudColors.TextSecondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> { /* No summary when loading/error */ }
+                }
+
+                // Tabs
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.White,
+                    contentColor = CrudColors.Primary
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Tồn thấp") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Vượt mức") }
+                    )
+                }
+
+                // Content list
+                AppCard(
+                    modifier = Modifier.fillMaxSize(),
+                    title = if (selectedTab == 0) "Danh sách tồn thấp" else "Danh sách vượt mức"
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        when (val state = alertUiState) {
+                            is AlertUiState.Loading -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = CrudColors.Primary
+                                )
+                            }
+                            is AlertUiState.Error -> {
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        state.message,
+                                        color = CrudColors.DangerAction,
+                                        fontSize = 14.sp
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Button(
+                                        onClick = { viewModel.loadAlerts() },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = CrudColors.Primary
+                                        )
+                                    ) {
+                                        Text("Thử lại")
+                                    }
+                                }
+                            }
+                            is AlertUiState.Success -> {
+                                if (selectedTab == 0) {
+                                    // Low stock tab with client-side pagination
+                                    val totalLowStockPages = (state.lowStockAlerts.size + pageSize - 1) / pageSize
+                                    val startIndex = (currentLowStockPage - 1) * pageSize
+                                    val endIndex = minOf(startIndex + pageSize, state.lowStockAlerts.size)
+                                    val currentPageItems = state.lowStockAlerts.subList(startIndex, endIndex)
+                                    
+                                    if (state.lowStockAlerts.isEmpty()) {
+                                        Text(
+                                            "Không có sản phẩm tồn thấp!",
+                                            modifier = Modifier
+                                                .align(Alignment.Center)
+                                                .padding(16.dp),
+                                            color = CrudColors.TextSecondary
+                                        )
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentPadding = PaddingValues(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(currentPageItems) { alert ->
+                                                LowStockAlertCard(alert)
+                                            }
+                                            
+                                            // Client-side pagination
+                                            item {
+                                                Pagination(
+                                                    currentPage = currentLowStockPage,
+                                                    totalPages = totalLowStockPages,
+                                                    onPageClick = { page -> currentLowStockPage = page },
+                                                    onPreviousClick = { 
+                                                        if (currentLowStockPage > 1) currentLowStockPage--
+                                                    },
+                                                    onNextClick = { 
+                                                        if (currentLowStockPage < totalLowStockPages) currentLowStockPage++
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Over stock tab with client-side pagination
+                                    val totalOverStockPages = (state.overStockAlerts.size + pageSize - 1) / pageSize
+                                    val startIndex = (currentOverStockPage - 1) * pageSize
+                                    val endIndex = minOf(startIndex + pageSize, state.overStockAlerts.size)
+                                    val currentPageItems = state.overStockAlerts.subList(startIndex, endIndex)
+                                    
+                                    if (state.overStockAlerts.isEmpty()) {
+                                        Text(
+                                            "Không có sản phẩm vượt mức!",
+                                            modifier = Modifier
+                                                .align(Alignment.Center)
+                                                .padding(16.dp),
+                                            color = CrudColors.TextSecondary
+                                        )
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentPadding = PaddingValues(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(currentPageItems) { alert ->
+                                                OverStockAlertCard(alert)
+                                            }
+                                            
+                                            // Client-side pagination
+                                            item {
+                                                Pagination(
+                                                    currentPage = currentOverStockPage,
+                                                    totalPages = totalOverStockPages,
+                                                    onPageClick = { page -> currentOverStockPage = page },
+                                                    onPreviousClick = { 
+                                                        if (currentOverStockPage > 1) currentOverStockPage--
+                                                    },
+                                                    onNextClick = { 
+                                                        if (currentOverStockPage < totalOverStockPages) currentOverStockPage++
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-    ) { paddingValues ->
+    }
+}
+
+@Composable
+private fun LowStockAlertCard(alert: LowStockAlert) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = MaterialTheme.shapes.medium
+    ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = Dimens.ScreenPadding, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (selectedTab == 0) {
-                LowStockSummary(
-                    lowCount = lowStockProducts.size,
-                    outCount = outOfStockCount
-                )
-            }
-
-            AlertFilters(
-                keyword = keyword,
-                onKeywordChange = { keyword = it },
-                selectedCategory = selectedCategory,
-                categories = categories,
-                onCategoryChange = { selectedCategory = it },
-                selectedSupplier = selectedSupplier,
-                suppliers = suppliers,
-                onSupplierChange = { selectedSupplier = it }
-            )
-
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color.White,
-                contentColor = CrudColors.Primary
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Tồn thấp")
-                            Badge { Text(lowStockProducts.size.toString()) }
-                        }
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Vượt mức")
-                            Badge { Text(overStockProducts.size.toString()) }
-                        }
-                    }
-                )
-            }
-
-            Card(
-                modifier = Modifier.fillMaxSize(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CrudColors.BorderColor),
-                shape = CrudStyles.CardShape
-            ) {
-                InventoryContentState(
-                    isLoading = isLoading,
-                    errorMessage = errorMessage,
-                    isEmpty = if (selectedTab == 0) visibleLowStock.isEmpty() else visibleOverStock.isEmpty(),
-                    emptyMessage = if (selectedTab == 0) {
-                        "Không có sản phẩm tồn thấp phù hợp."
-                    } else {
-                        "Không có sản phẩm vượt mức phù hợp."
-                    },
-                    onRetry = onRetry
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(12.dp)
-                    ) {
-                        Column(modifier = Modifier.widthIn(min = 1120.dp)) {
-                            if (selectedTab == 0) {
-                                LowStockTableHeader()
-                                Divider(color = CrudColors.BorderColor)
-                                visibleLowStock.forEach { product ->
-                                    LowStockTableRow(product) { selectedProductId = product.productId }
-                                    Divider(color = CrudColors.BorderColor)
-                                }
-                            } else {
-                                OverStockTableHeader()
-                                Divider(color = CrudColors.BorderColor)
-                                visibleOverStock.forEach { product ->
-                                    OverStockTableRow(product) { selectedProductId = product.productId }
-                                    Divider(color = CrudColors.BorderColor)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    selectedProductId?.let { productId ->
-        val selectedProduct = products.firstOrNull { it.productId == productId }
-        if (selectedProduct != null) {
-            InventoryAllocationSheet(
-                product = selectedProduct,
-                inventoryItems = inventoryItems.filter { it.productId == productId },
-                sortByStockDescending = selectedTab == 1,
-                onDismiss = { selectedProductId = null }
-            )
-        }
-    }
-}
-
-@Composable
-private fun LowStockSummary(lowCount: Int, outCount: Int) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CrudColors.BorderColor),
-        shape = CrudStyles.CardShape
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text("$lowCount sản phẩm dưới ngưỡng", fontWeight = FontWeight.Bold, color = CrudColors.TextPrimary)
-            Text("$outCount sản phẩm đã hết hàng (tồn = 0)", color = CrudColors.DangerAction, fontSize = 13.sp)
-            Text(
-                "Tính theo tổng tồn của các kho đang hoạt động",
-                color = CrudColors.TextSecondary,
-                fontSize = 12.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun AlertFilters(
-    keyword: String,
-    onKeywordChange: (String) -> Unit,
-    selectedCategory: String,
-    categories: List<String>,
-    onCategoryChange: (String) -> Unit,
-    selectedSupplier: String,
-    suppliers: List<String>,
-    onSupplierChange: (String) -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CrudColors.BorderColor),
-        shape = CrudStyles.CardShape
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
-                value = keyword,
-                onValueChange = onKeywordChange,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = CrudColors.TextSecondary) },
-                placeholder = { Text("Tìm theo SKU hoặc tên sản phẩm") },
-                shape = CrudStyles.InputShape,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CrudColors.Primary,
-                    unfocusedBorderColor = CrudColors.BorderColor,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                )
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                AlertFilterDropdown(
-                    label = "Danh mục",
-                    value = selectedCategory,
-                    allLabel = "Tất cả danh mục",
-                    options = categories,
-                    modifier = Modifier.weight(1f),
-                    onValueChange = onCategoryChange
-                )
-                AlertFilterDropdown(
-                    label = "Nhà cung cấp",
-                    value = selectedSupplier,
-                    allLabel = "Tất cả nhà cung cấp",
-                    options = suppliers,
-                    modifier = Modifier.weight(1f),
-                    onValueChange = onSupplierChange
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AlertFilterDropdown(
-    label: String,
-    value: String,
-    allLabel: String,
-    options: List<String>,
-    modifier: Modifier,
-    onValueChange: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-            shape = CrudStyles.InputShape,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = CrudColors.Primary,
-                unfocusedBorderColor = CrudColors.BorderColor,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White
-            )
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(allLabel) },
-                onClick = {
-                    onValueChange(allLabel)
-                    expanded = false
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        alert.productName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = CrudColors.TextPrimary
+                    )
+                    Text(
+                        alert.sku,
+                        fontSize = 12.sp,
+                        color = CrudColors.TextSecondary
+                    )
                 }
-            )
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option) },
-                    onClick = {
-                        onValueChange(option)
-                        expanded = false
-                    }
+                Surface(
+                    color = if (alert.totalStock == 0) 
+                        CrudColors.DangerAction.copy(alpha = 0.1f)
+                    else 
+                        CrudColors.WarnBg,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        if (alert.totalStock == 0) "Hết hàng" else "Tồn thấp",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = if (alert.totalStock == 0) 
+                            CrudColors.DangerAction 
+                        else 
+                            CrudColors.WarnText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Divider(color = CrudColors.BorderColor)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Tồn hiện tại", fontSize = 11.sp, color = CrudColors.TextSecondary)
+                    Text(
+                        "${alert.totalStock} ${alert.unit}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = if (alert.totalStock == 0) CrudColors.DangerAction else CrudColors.TextPrimary
+                    )
+                }
+                Column {
+                    Text("Tồn tối thiểu", fontSize = 11.sp, color = CrudColors.TextSecondary)
+                    Text(
+                        "${alert.minStock} ${alert.unit}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+                Column {
+                    Text("Số lượng thiếu", fontSize = 11.sp, color = CrudColors.TextSecondary)
+                    Text(
+                        "${alert.missingQuantity} ${alert.unit}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = CrudColors.WarnText
+                    )
+                }
+            }
+
+            // Show supplier info for ordering
+            alert.supplierName?.let { supplier ->
+                Text(
+                    "Nhà cung cấp: $supplier",
+                    fontSize = 12.sp,
+                    color = CrudColors.TextSecondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CrudColors.WarnBg.copy(alpha = 0.3f))
+                        .padding(8.dp)
                 )
             }
         }
@@ -365,221 +369,94 @@ private fun AlertFilterDropdown(
 }
 
 @Composable
-private fun LowStockTableHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(CrudColors.LightGreenBg).padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AlertCell("SKU / Tên sản phẩm", 2f, true)
-        AlertCell("Đơn vị", 0.7f, true)
-        AlertCell("Nhà cung cấp", 1.5f, true)
-        AlertCell("Tồn tối thiểu", 1f, true)
-        AlertCell("Tổng tồn", 0.9f, true)
-        AlertCell("Số lượng thiếu", 1f, true)
-        AlertCell("Mức độ", 0.9f, true)
-        AlertCell("Thao tác", 1.5f, true)
-    }
-}
-
-@Composable
-private fun LowStockTableRow(product: InventoryThresholdProduct, onShowDistribution: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AlertCell("${product.sku}\n${product.productName}", 2f)
-        AlertCell(product.unit, 0.7f)
-        AlertCell(product.supplierName, 1.5f)
-        AlertCell(InventoryFormatters.formatNumber(product.minStock), 1f)
-        AlertCell(InventoryFormatters.formatNumber(product.totalStock), 0.9f)
-        AlertCell(InventoryFormatters.formatNumber(product.minStock - product.totalStock), 1f, true)
-        Row(modifier = Modifier.weight(0.9f), horizontalArrangement = Arrangement.Center) {
-            AlertSeverityBadge(
-                label = if (product.totalStock == 0) "Hết hàng" else "Thấp",
-                isOutOfStock = product.totalStock == 0
-            )
-        }
-        Row(modifier = Modifier.weight(1.5f), horizontalArrangement = Arrangement.Center) {
-            Button(
-                onClick = onShowDistribution,
-                shape = CrudStyles.InputShape,
-                colors = ButtonDefaults.buttonColors(containerColor = CrudColors.Primary)
-            ) {
-                Text("Xem phân bổ theo kho", fontSize = 11.sp, maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverStockTableHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(CrudColors.LightGreenBg).padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AlertCell("SKU / Tên sản phẩm", 2f, true)
-        AlertCell("Đơn vị", 0.7f, true)
-        AlertCell("Tồn tối đa", 1f, true)
-        AlertCell("Tổng tồn hiện tại", 1f, true)
-        AlertCell("Số lượng vượt", 1f, true)
-        AlertCell("Tỷ lệ vượt", 0.9f, true)
-        AlertCell("Thao tác", 1.5f, true)
-    }
-}
-
-@Composable
-private fun OverStockTableRow(product: InventoryThresholdProduct, onShowDistribution: () -> Unit) {
-    val excess = product.totalStock - product.maxStock
-    val excessPercent = if (product.maxStock > 0) {
-        String.format(Locale.getDefault(), "%.2f%%", (product.totalStock.toDouble() / product.maxStock - 1) * 100)
-    } else {
-        "-"
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AlertCell("${product.sku}\n${product.productName}", 2f)
-        AlertCell(product.unit, 0.7f)
-        AlertCell(InventoryFormatters.formatNumber(product.maxStock), 1f)
-        AlertCell(InventoryFormatters.formatNumber(product.totalStock), 1f)
-        AlertCell(InventoryFormatters.formatNumber(excess), 1f, true)
-        AlertCell(excessPercent, 0.9f)
-        Row(modifier = Modifier.weight(1.5f), horizontalArrangement = Arrangement.Center) {
-            Button(
-                onClick = onShowDistribution,
-                shape = CrudStyles.InputShape,
-                colors = ButtonDefaults.buttonColors(containerColor = CrudColors.Primary)
-            ) {
-                Text("Xem kho bị ảnh hưởng", fontSize = 11.sp, maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AlertSeverityBadge(label: String, isOutOfStock: Boolean) {
+private fun OverStockAlertCard(alert: OverStockAlert) {
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (isOutOfStock) Color(0xFFFFE6E6) else CrudColors.WarnBg
-        ),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            color = if (isOutOfStock) CrudColors.DangerAction else CrudColors.WarnText,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun RowScope.AlertCell(text: String, weight: Float, bold: Boolean = false) {
-    Text(
-        text = text,
-        modifier = Modifier.weight(weight).padding(horizontal = 5.dp),
-        color = if (bold) CrudColors.TextPrimary else CrudColors.TextSecondary,
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-        fontSize = 12.sp,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InventoryAllocationSheet(
-    product: InventoryThresholdProduct,
-    inventoryItems: List<InventoryItem>,
-    sortByStockDescending: Boolean,
-    onDismiss: () -> Unit
-) {
-    val allocations = if (sortByStockDescending) {
-        inventoryItems.sortedByDescending { it.stockQuantity }
-    } else {
-        inventoryItems
-    }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = CrudColors.LightGreenBg,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = MaterialTheme.shapes.medium
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Phân bổ tồn kho", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                    Text("${product.sku} · ${product.productName}", color = CrudColors.TextSecondary)
+                    Text(
+                        alert.productName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = CrudColors.TextPrimary
+                    )
+                    Text(
+                        alert.sku,
+                        fontSize = 12.sp,
+                        color = CrudColors.TextSecondary
+                    )
                 }
-                TextButton(onClick = onDismiss) { Text("Đóng") }
-            }
-            if (allocations.isEmpty()) {
-                Text("Chưa có dữ liệu phân bổ theo kho.", color = CrudColors.TextSecondary)
-            } else {
-                Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                    Column(modifier = Modifier.widthIn(min = 760.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().background(CrudColors.LightGreenBg).padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AllocationCell("Kho", 1.2f, true)
-                            AllocationCell("Mã lô", 1.1f, true)
-                            AllocationCell("Hạn dùng", 1f, true)
-                            AllocationCell("Tồn thực tế", 1f, true)
-                            AllocationCell("Khả dụng", 1f, true)
-                        }
-                        Divider(color = CrudColors.BorderColor)
-                        allocations.forEach { item ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().background(Color.White).padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AllocationCell(item.warehouseName, 1.2f)
-                                AllocationCell(InventoryFormatters.formatBatch(item.batchCode), 1.1f)
-                                AllocationCell(InventoryFormatters.formatDate(item.expiryDate), 1f)
-                                AllocationCell(InventoryFormatters.formatNumber(item.stockQuantity), 1f)
-                                AllocationCell(InventoryFormatters.formatNumber(item.availableQuantity), 1f)
-                            }
-                        }
-                    }
+                Surface(
+                    color = CrudColors.Primary.copy(alpha = 0.1f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        "Vượt mức",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = CrudColors.Primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
-            Spacer(modifier = Modifier.heightIn(min = 8.dp))
+
+            Divider(color = CrudColors.BorderColor)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Tồn hiện tại", fontSize = 11.sp, color = CrudColors.TextSecondary)
+                    Text(
+                        "${alert.totalStock} ${alert.unit}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = CrudColors.Primary
+                    )
+                }
+                Column {
+                    Text("Tồn tối đa", fontSize = 11.sp, color = CrudColors.TextSecondary)
+                    Text(
+                        "${alert.maxStock} ${alert.unit}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+                Column {
+                    Text("Số lượng vượt", fontSize = 11.sp, color = CrudColors.TextSecondary)
+                    Text(
+                        "${alert.excessQuantity} ${alert.unit}",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = CrudColors.Primary
+                    )
+                }
+            }
+
+            // Show excess percentage if available
+            alert.excessPercent?.let { percent ->
+                Text(
+                    "Vượt mức: $percent%",
+                    fontSize = 12.sp,
+                    color = CrudColors.TextSecondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CrudColors.Primary.copy(alpha = 0.1f))
+                        .padding(8.dp)
+                )
+            }
         }
     }
-}
-
-@Composable
-private fun RowScope.AllocationCell(text: String, weight: Float, bold: Boolean = false) {
-    Text(
-        text = text,
-        modifier = Modifier.weight(weight).padding(horizontal = 5.dp),
-        color = if (bold) CrudColors.TextPrimary else CrudColors.TextSecondary,
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-        fontSize = 12.sp,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis
-    )
-}
-
-private fun InventoryThresholdProduct.matchesAlertFilter(
-    keyword: String,
-    category: String,
-    supplier: String
-): Boolean {
-    val matchesKeyword = keyword.isBlank() ||
-        sku.contains(keyword, ignoreCase = true) ||
-        productName.contains(keyword, ignoreCase = true)
-    val matchesCategory = category == "Tất cả danh mục" || categoryName == category
-    val matchesSupplier = supplier == "Tất cả nhà cung cấp" || supplierName == supplier
-    return matchesKeyword && matchesCategory && matchesSupplier
 }
