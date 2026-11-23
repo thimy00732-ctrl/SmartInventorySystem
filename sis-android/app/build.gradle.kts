@@ -87,7 +87,7 @@ dependencies {
     // Google ML Kit Barcode Scanning
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
 
-    // Retrofit + OkHttp
+    // Retrofit + OkHttp (Sprint 1)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -95,6 +95,9 @@ dependencies {
 
     // Gson
     implementation("com.google.code.gson:gson:2.11.0")
+    
+    // Image loading (Sprint 2 - Inventory Module)
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Security (for encrypted SharedPreferences)
     implementation("androidx.security:security-crypto:1.1.0")

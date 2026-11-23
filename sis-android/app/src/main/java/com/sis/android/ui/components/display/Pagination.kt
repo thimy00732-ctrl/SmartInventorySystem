@@ -36,7 +36,7 @@ fun Pagination(
     onNextClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (totalPages <= 1) return  // Không hiển thị nếu chỉ có 1 trang
+    // Luôn hiển thị pagination (không ẩn khi totalPages <= 1)
 
     Row(
         modifier = modifier

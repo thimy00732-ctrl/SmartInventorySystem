@@ -10,6 +10,15 @@ import com.sis.android.data.model.UpdateProductRequest
 import com.sis.android.data.model.ProductResponse
 import com.sis.android.data.model.ProductFilterOptions
 import com.sis.android.data.model.Supplier
+import com.sis.android.data.model.InventoryPageResponse
+import com.sis.android.data.model.InventoryItem
+import com.sis.android.data.model.LowStockAlert
+import com.sis.android.data.model.OverStockAlert
+import com.sis.android.data.model.AlertSummary
+import com.sis.android.data.model.ThresholdProduct
+import com.sis.android.data.model.UpdateThresholdRequest
+import com.sis.android.data.model.StockLedgerResponse
+import com.sis.android.data.model.ValuationResponse
 import retrofit2.http.*
 import retrofit2.Response
 
@@ -200,7 +209,7 @@ interface ApiService {
     @PATCH("api/categories/{id}/deactivate")
     suspend fun deactivateCategory(
         @Path("id") id: Long
-    )
+    ): Unit
 
     @PATCH("api/categories/{id}/reactivate")
     suspend fun reactivateCategory(
@@ -218,23 +227,23 @@ interface ApiService {
     suspend fun getSuppliers(
         @Query("keyword") keyword: String? = null,
         @Query("activeOnly") activeOnly: Boolean? = true
-    ): List<Supplier>
+    ): List<com.sis.android.data.model.Supplier>
 
     @GET("api/suppliers/{id}")
     suspend fun getSupplierById(
         @Path("id") id: Long
-    ): Supplier
+    ): com.sis.android.data.model.Supplier
 
     @POST("api/suppliers")
     suspend fun createSupplier(
-        @Body supplier: Supplier
-    ): Supplier
+        @Body supplier: com.sis.android.data.model.Supplier
+    ): com.sis.android.data.model.Supplier
 
     @PUT("api/suppliers/{id}")
     suspend fun updateSupplier(
         @Path("id") id: Long,
-        @Body supplier: Supplier
-    ): Supplier
+        @Body supplier: com.sis.android.data.model.Supplier
+    ): com.sis.android.data.model.Supplier
 
     @PATCH("api/suppliers/{id}/deactivate")
     suspend fun deactivateSupplier(
@@ -250,4 +259,83 @@ interface ApiService {
     suspend fun deleteSupplier(
         @Path("id") id: Long
     )
+
+    // ========== INVENTORY (UC29-UC32) ==========
+    
+    @GET("api/inventory")
+    suspend fun getInventory(
+        @Query("keyword") keyword: String? = null,
+        @Query("warehouseId") warehouseId: Long? = null,
+        @Query("categoryId") categoryId: Long? = null,
+        @Query("supplierId") supplierId: Long? = null,
+        @Query("stockStatus") stockStatus: String? = null,
+        @Query("sortBy") sortBy: String? = "product_name",
+        @Query("sortDirection") sortDirection: String? = "ASC",
+        @Query("page") page: Int = 1,
+        @Query("size") size: Int = 10
+    ): InventoryPageResponse
+
+    @GET("api/inventory/{id}")
+    suspend fun getInventoryDetail(
+        @Path("id") inventoryId: Long
+    ): InventoryItem
+
+    @GET("api/inventory/by-product/{productId}")
+    suspend fun getInventoryByProduct(
+        @Path("productId") productId: Long
+    ): List<InventoryItem>
+
+    @PATCH("api/inventory/{id}/reserved")
+    suspend fun updateReservedQuantity(
+        @Path("id") inventoryId: Long,
+        @Body request: Map<String, Int>
+    ): InventoryItem
+
+    // ========== ALERTS (UC34-UC35) ==========
+    
+    @GET("api/alerts/low-stock")
+    suspend fun getLowStockAlerts(): List<LowStockAlert>
+
+    @GET("api/alerts/over-stock")
+    suspend fun getOverStockAlerts(): List<OverStockAlert>
+
+    @GET("api/alerts/summary")
+    suspend fun getAlertSummary(): AlertSummary
+
+    // ========== THRESHOLDS (UC33) ==========
+    
+    @GET("api/products/thresholds")
+    suspend fun getProductThresholds(
+        @Query("warehouseId") warehouseId: Long? = null
+    ): List<ThresholdProduct>
+
+    @PATCH("api/products/{id}/thresholds")
+    suspend fun updateProductThresholds(
+        @Path("id") productId: Long,
+        @Body request: UpdateThresholdRequest
+    ): ThresholdProduct
+
+    // ========== STOCK LEDGER (UC36) ==========
+    
+    @GET("api/stock-ledger")
+    suspend fun getStockLedger(
+        @Query("fromDate") fromDate: String,
+        @Query("toDate") toDate: String,
+        @Query("warehouseId") warehouseId: Long? = null,
+        @Query("categoryId") categoryId: Long? = null,
+        @Query("keyword") keyword: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("size") size: Int = 10
+    ): StockLedgerResponse
+
+    // ========== VALUATION (UC39) ==========
+    
+    @GET("api/inventory/valuation")
+    suspend fun getValuation(
+        @Query("warehouseId") warehouseId: Long? = null,
+        @Query("categoryId") categoryId: Long? = null,
+        @Query("keyword") keyword: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("size") size: Int = 10
+    ): ValuationResponse
 }

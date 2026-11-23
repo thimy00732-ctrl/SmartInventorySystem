@@ -5,14 +5,20 @@ import com.sis.backend.dto.*
 import com.sis.backend.repository.CategoryRepository
 import com.sis.backend.repository.SupplierRepository
 import com.sis.backend.repository.WarehouseRepository
+import com.sis.backend.security.RolePolicy
+import com.sis.backend.security.requireRole
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.route
 
 /**
- * Khai báo các API quản lý tồn kho.
+ * Khai báo các API quản lý tồn kho (UC29-32).
+ *
+ * MỌI ENDPOINT đều yêu cầu xác thực JWT và phân quyền (requireRole).
+ * Không có endpoint public.
  *
  * @param inventoryController Controller xử lý yêu cầu tồn kho.
  * @param warehouseRepository Repository kho hàng (cho dropdown).
@@ -26,40 +32,42 @@ fun Route.inventoryRoutes(
     supplierRepository: SupplierRepository
 ) {
     route("/api/inventory") {
-
-        /**
-         * Lấy danh sách tồn kho có tìm kiếm, lọc và phân trang.
-         *
-         * Query parameters:
-         * - keyword: Tìm theo SKU, barcode, tên sản phẩm
-         * - warehouseId: Lọc theo kho (null = tất cả kho)
-         * - categoryId: Lọc theo danh mục
-         * - supplierId: Lọc theo nhà cung cấp
-         * - stockStatus: ALL, IN_STOCK, OUT_OF_STOCK, HAS_RESERVED
-         * - minQuantity: Số lượng tồn tối thiểu
-         * - maxQuantity: Số lượng tồn tối đa
-         * - expiryDateFrom: Ngày hết hạn từ (YYYY-MM-DD)
-         * - expiryDateTo: Ngày hết hạn đến (YYYY-MM-DD)
-         * - sortBy: stock_quantity, reserved_quantity, available_quantity, 
-         *           product_name, expiry_date, updated_at
-         * - sortDirection: ASC hoặc DESC
-         * - page: Số trang (mặc định 1)
-         * - size: Kích thước trang (mặc định 10)
-         */
-        get {
-            inventoryController.getInventoryPage(call)
+        
+        // UC29: Danh sách tồn kho
+        // ADMIN và STAFF đều được xem
+        requireRole(*RolePolicy.INVENTORY_LIST.toTypedArray()) {
+            get {
+                inventoryController.getInventoryList(call)
+            }
         }
-
-        /**
-         * Lấy chi tiết tồn kho theo ID.
-         */
-        get("/{id}") {
-            inventoryController.getInventoryById(call)
+        
+        // UC30: Chi tiết tồn kho theo ID
+        // ADMIN và STAFF đều được xem
+        requireRole(*RolePolicy.INVENTORY_DETAIL.toTypedArray()) {
+            get("/{id}") {
+                inventoryController.getInventoryDetail(call)
+            }
         }
-
+        
+        // UC30: Danh sách tồn kho theo sản phẩm
+        // ADMIN và STAFF đều được xem
+        requireRole(*RolePolicy.INVENTORY_BY_PRODUCT.toTypedArray()) {
+            get("/by-product/{productId}") {
+                inventoryController.getInventoryByProduct(call)
+            }
+        }
+        
+        // UC31: Cập nhật reserved_quantity
+        // ADMIN và STAFF đều được cập nhật (đã chốt với PO)
+        requireRole(*RolePolicy.INVENTORY_UPDATE_RESERVED.toTypedArray()) {
+            patch("/{id}/reserved") {
+                inventoryController.updateReservedQuantity(call)
+            }
+        }
+        
         /**
-         * Lấy tất cả dropdown options cho inventory filter.
-         *
+         * Dropdown options cho filter (không cần auth - helper endpoint).
+         * 
          * Response gồm:
          * - warehouses: Danh sách kho
          * - categories: Danh sách danh mục

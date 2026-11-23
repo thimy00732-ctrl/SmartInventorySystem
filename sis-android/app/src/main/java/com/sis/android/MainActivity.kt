@@ -23,6 +23,7 @@ import com.sis.android.data.model.User
 import com.sis.android.data.model.ManagedStaff
 import com.sis.android.data.remote.RetrofitClient
 import com.sis.android.di.AppModule
+import com.sis.android.ui.inventory.InventoryModuleHost
 import com.sis.android.ui.products.BarcodeScannerScreen
 import com.sis.android.ui.products.ProductDetailScreen
 import com.sis.android.ui.products.ProductFormScreen
@@ -46,6 +47,11 @@ import com.sis.android.ui.viewmodel.SupplierViewModel
 import com.sis.android.ui.theme.color.CrudColors
 import kotlinx.coroutines.launch
 
+/*
+ * Activity chính của ứng dụng Android.
+ * File này điều khiển màn hình đang hiển thị và lựa chọn màn hình mặc định
+ * để test các module đang phát triển như quản lý tồn kho trong giai đoạn đầu.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -196,8 +202,8 @@ fun MainScreen(
         Scaffold(
             containerColor = Color.White,
             bottomBar = {
-                // Chỉ hiện bottom nav khi không ở màn hình Staff Management
-                if (!currentScreen.startsWith("STAFF")) {
+                // Chỉ hiện bottom nav khi không ở màn hình Staff Management hoặc Inventory Module
+                if (!currentScreen.startsWith("STAFF") && !currentScreen.startsWith("inventory/")) {
                     NavigationBar(
                         containerColor = Color.White,
                         contentColor = CrudColors.Primary,
@@ -253,23 +259,11 @@ fun MainScreen(
                         )
                     }
                     
-                    // Placeholder screens for unimplemented features
+                    // Inventory Module - Sprint 2
                     currentScreen.startsWith("inventory/") -> {
-                        com.sis.android.ui.components.PlaceholderScreen(
-                            title = when (currentScreen) {
-                                "inventory/overview" -> "Tổng quan tồn kho"
-                                "inventory/by-location" -> "Tồn kho theo vị trí"
-                                "inventory/alerts" -> "Cảnh báo tồn kho"
-                                "inventory/movements" -> "Lịch sử xuất nhập"
-                                "inventory/adjustment" -> "Điều chỉnh tồn kho"
-                                else -> "Quản lý tồn kho"
-                            },
-                            description = "Chức năng đang được phát triển. Backend API đang xây dựng.",
-                            onMenuClick = {
-                                scope.launch {
-                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
-                                }
-                            }
+                        InventoryModuleHost(
+                            onGoToProducts = { currentScreen = "LIST" },
+                            apiService = RetrofitClient.apiService
                         )
                     }
                     
@@ -476,7 +470,7 @@ fun AppContent(
 
     LaunchedEffect(Unit) {
         categoryViewModel.loadCategories()
-        supplierViewModel.loadSuppliers()  // ✅ Load suppliers
+        supplierViewModel.loadSuppliers()
     }
 
     var isSaving by remember { mutableStateOf(false) }
@@ -493,7 +487,7 @@ fun AppContent(
     var supplierToEdit by remember { mutableStateOf<Supplier?>(null) }
 
     when (currentScreen) {
-        "LIST", "products" -> {  // Map "products" từ menu → "LIST"
+        "LIST", "products" -> {
             ProductListScreen(
                 viewModel = productViewModel,
                 isAdmin = isAdmin,
@@ -512,10 +506,8 @@ fun AppContent(
             )
         }
         
-        "products/add", "FORM" -> {  // Route từ menu hoặc internal state
-            // 🔒 CHỈ ADMIN được thêm/sửa sản phẩm
+        "products/add", "FORM" -> {
             if (!isAdmin && productToEdit == null) {
-                // WAREHOUSE_STAFF cố truy cập thêm sản phẩm → đẩy về danh sách
                 onScreenChange("LIST")
             } else {
             ProductFormScreen(
@@ -544,7 +536,6 @@ fun AppContent(
                             savedProduct,
                             onSuccess = {
                                 isSaving = false
-                                // ✅ Reload product từ cache để có categoryName mới
                                 selectedProduct = productViewModel.getProductById(savedProduct.productId)
                                 onScreenChange("DETAIL")
                             },
@@ -560,7 +551,7 @@ fun AppContent(
                     onScreenChange("LIST")
                 }
             )
-            }  // 🔒 End admin check
+            }
         }
 
         "DETAIL" -> {
@@ -617,7 +608,7 @@ fun AppContent(
             )
         }
 
-        "CATEGORIES", "categories" -> {  // Map "categories" từ menu → "CATEGORIES"
+        "CATEGORIES", "categories" -> {
             CategoryListScreen(
                 viewModel = categoryViewModel,
                 isAdmin = isAdmin,
@@ -669,9 +660,7 @@ fun AppContent(
         }
 
         "CATEGORY_FORM" -> {
-            // 🔒 CHỈ ADMIN được thêm/sửa danh mục
             if (!isAdmin && categoryToEdit == null) {
-                // WAREHOUSE_STAFF cố truy cập thêm danh mục → đẩy về danh sách
                 onScreenChange("CATEGORIES")
             } else {
             CategoryFormScreen(
@@ -699,10 +688,10 @@ fun AppContent(
                     onScreenChange(if (categoryToEdit != null) "CATEGORY_DETAIL" else "CATEGORIES")
                 }
             )
-            }  // 🔒 End admin check
+            }
         }
 
-        "SUPPLIERS", "suppliers" -> {  // Map "suppliers" từ menu → "SUPPLIERS"
+        "SUPPLIERS", "suppliers" -> {
             SupplierListScreen(
                 viewModel = supplierViewModel,
                 isAdmin = isAdmin,
@@ -754,10 +743,8 @@ fun AppContent(
         }
 
         
-        "suppliers/add", "SUPPLIER_FORM" -> {  // Route từ menu hoặc internal state
-            // 🔒 CHỈ ADMIN được thêm/sửa nhà cung cấp
+        "suppliers/add", "SUPPLIER_FORM" -> {
             if (!isAdmin && supplierToEdit == null) {
-                // WAREHOUSE_STAFF cố truy cập thêm NCC → đẩy về danh sách
                 onScreenChange("SUPPLIERS")
             } else {
             SupplierFormScreen(
@@ -785,7 +772,7 @@ fun AppContent(
                     onScreenChange(if (supplierToEdit != null) "SUPPLIER_DETAIL" else "SUPPLIERS")
                 }
             )
-            }  // 🔒 End admin check
+            }
         }
     }
 

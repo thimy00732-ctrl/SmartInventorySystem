@@ -1,131 +1,101 @@
 package com.sis.backend.controller
 
 import com.sis.backend.dto.InventorySearchFilter
-import com.sis.backend.dto.PageResult
 import com.sis.backend.dto.StockStatus
-import com.sis.backend.entity.Inventory
+import com.sis.backend.dto.UpdateReservedRequest
+import com.sis.backend.exception.ValidationException
 import com.sis.backend.service.InventoryService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 
 /**
- * Controller xử lý các request liên quan đến tồn kho.
- *
- * @property inventoryService Service xử lý logic tồn kho.
+ * Controller xử lý HTTP request/response cho inventory (UC29-32).
+ * 
+ * Nhiệm vụ:
+ * - Parse và validate request params
+ * - Gọi service
+ * - Trả response với status code phù hợp
  */
 class InventoryController(
     private val inventoryService: InventoryService
 ) {
-
     /**
-     * Lấy danh sách tồn kho với filter và phân trang.
-     *
-     * Query parameters:
-     * - keyword: Tìm theo SKU, barcode, tên sản phẩm
-     * - warehouseId: Lọc theo kho
-     * - categoryId: Lọc theo danh mục
-     * - supplierId: Lọc theo nhà cung cấp
-     * - stockStatus: ALL, IN_STOCK, OUT_OF_STOCK, HAS_RESERVED
-     * - minQuantity: Số lượng tồn tối thiểu
-     * - maxQuantity: Số lượng tồn tối đa
-     * - expiryDateFrom: Ngày hết hạn từ (YYYY-MM-DD)
-     * - expiryDateTo: Ngày hết hạn đến (YYYY-MM-DD)
-     * - sortBy: Cột sắp xếp
-     * - sortDirection: ASC hoặc DESC
-     * - page: Số trang
-     * - size: Kích thước trang
+     * UC29: GET /api/inventory
+     * Danh sách tồn kho với lọc và phân trang.
      */
-    suspend fun getInventoryPage(call: ApplicationCall) {
-        try {
-            val query = call.request.queryParameters
-
-            val page = query["page"]?.toIntOrNull() ?: 1
-            val size = query["size"]?.toIntOrNull() ?: 10
-
-            val stockStatus = query["stockStatus"]?.let {
-                try {
-                    StockStatus.valueOf(it.uppercase())
-                } catch (e: IllegalArgumentException) {
-                    throw IllegalArgumentException(
-                        "Trạng thái tồn kho không hợp lệ. Chỉ chấp nhận: ALL, IN_STOCK, OUT_OF_STOCK, HAS_RESERVED"
-                    )
-                }
-            } ?: StockStatus.ALL
-
-            val filter = InventorySearchFilter(
-                keyword = query["keyword"]?.takeIf { it.isNotBlank() },
-                warehouseId = query["warehouseId"]?.let {
-                    it.toLongOrNull()
-                        ?: throw IllegalArgumentException("Mã kho không hợp lệ.")
-                },
-                warehouseName = query["warehouseName"]?.takeIf { it.isNotBlank() },
-                categoryId = query["categoryId"]?.let {
-                    it.toLongOrNull()
-                        ?: throw IllegalArgumentException("Mã danh mục không hợp lệ.")
-                },
-                categoryName = query["categoryName"]?.takeIf { it.isNotBlank() },
-                supplierId = query["supplierId"]?.let {
-                    it.toLongOrNull()
-                        ?: throw IllegalArgumentException("Mã nhà cung cấp không hợp lệ.")
-                },
-                supplierName = query["supplierName"]?.takeIf { it.isNotBlank() },
-                stockStatus = stockStatus,
-                minQuantity = query["minQuantity"]?.let {
-                    it.toIntOrNull()
-                        ?: throw IllegalArgumentException("Số lượng tối thiểu không hợp lệ.")
-                },
-                maxQuantity = query["maxQuantity"]?.let {
-                    it.toIntOrNull()
-                        ?: throw IllegalArgumentException("Số lượng tối đa không hợp lệ.")
-                },
-                expiryDateFrom = query["expiryDateFrom"],
-                expiryDateTo = query["expiryDateTo"],
-                sortBy = query["sortBy"] ?: "stock_quantity",
-                sortDirection = query["sortDirection"] ?: "DESC"
+    suspend fun getInventoryList(call: ApplicationCall) {
+        val query = call.request.queryParameters
+        
+        // Parse pagination
+        val page = query["page"]?.toIntOrNull() ?: 1
+        val size = query["size"]?.toIntOrNull() ?: 10
+        
+        // Parse filters
+        val filter = try {
+            InventorySearchFilter(
+                keyword = query["keyword"]?.trim()?.takeIf { it.isNotBlank() },
+                warehouseId = query["warehouseId"]?.toLongOrNull(),
+                categoryId = query["categoryId"]?.toLongOrNull(),
+                supplierId = query["supplierId"]?.toLongOrNull(),
+                stockStatus = query["stockStatus"]?.let { 
+                    try {
+                        StockStatus.valueOf(it.uppercase())
+                    } catch (e: IllegalArgumentException) {
+                        throw ValidationException("Stock status không hợp lệ: $it. Chấp nhận: ALL, IN_STOCK, OUT_OF_STOCK, HAS_RESERVED")
+                    }
+                } ?: StockStatus.ALL,
+                sortBy = query["sortBy"] ?: "product_name",
+                sortDirection = query["sortDirection"] ?: "ASC"
             )
-
-            val result: PageResult<Inventory> = inventoryService.getInventoryPage(
-                filter = filter,
-                page = page,
-                size = size
-            )
-
-            call.respond(HttpStatusCode.OK, result)
-        } catch (exception: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                mapOf("error" to exception.message)
-            )
-        } catch (exception: Exception) {
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                mapOf("error" to "Lỗi server: ${exception.message}")
-            )
+        } catch (e: NumberFormatException) {
+            throw ValidationException("Tham số số không hợp lệ: ${e.message}")
         }
+        
+        val result = inventoryService.getInventoryPage(filter, page, size)
+        call.respond(HttpStatusCode.OK, result)
     }
-
+    
     /**
-     * Lấy chi tiết tồn kho theo ID.
+     * UC30: GET /api/inventory/{id}
+     * Chi tiết tồn kho theo ID.
      */
-    suspend fun getInventoryById(call: ApplicationCall) {
-        try {
-            val inventoryId = call.parameters["id"]?.toLongOrNull()
-                ?: throw IllegalArgumentException("ID tồn kho không hợp lệ.")
-
-            val inventory = inventoryService.getInventoryById(inventoryId)
-
-            call.respond(HttpStatusCode.OK, inventory)
-        } catch (exception: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                mapOf("error" to exception.message)
-            )
-        } catch (exception: Exception) {
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                mapOf("error" to "Lỗi server: ${exception.message}")
-            )
+    suspend fun getInventoryDetail(call: ApplicationCall) {
+        val id = call.parameters["id"]?.toLongOrNull()
+            ?: throw ValidationException("ID không hợp lệ.")
+        
+        val result = inventoryService.getInventoryDetail(id)
+        call.respond(HttpStatusCode.OK, result)
+    }
+    
+    /**
+     * UC30: GET /api/inventory/by-product/{productId}
+     * Danh sách tồn kho theo sản phẩm.
+     */
+    suspend fun getInventoryByProduct(call: ApplicationCall) {
+        val productId = call.parameters["productId"]?.toLongOrNull()
+            ?: throw ValidationException("Product ID không hợp lệ.")
+        
+        val result = inventoryService.getInventoryByProduct(productId)
+        call.respond(HttpStatusCode.OK, result)
+    }
+    
+    /**
+     * UC31: PATCH /api/inventory/{id}/reserved
+     * Cập nhật reserved_quantity.
+     */
+    suspend fun updateReservedQuantity(call: ApplicationCall) {
+        val id = call.parameters["id"]?.toLongOrNull()
+            ?: throw ValidationException("ID không hợp lệ.")
+        
+        val request = try {
+            call.receive<UpdateReservedRequest>()
+        } catch (e: Exception) {
+            throw ValidationException("Request body không hợp lệ: ${e.message}")
         }
+        
+        val result = inventoryService.updateReservedQuantity(id, request.reservedQuantity)
+        call.respond(HttpStatusCode.OK, result)
     }
 }

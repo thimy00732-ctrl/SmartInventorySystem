@@ -537,6 +537,37 @@ class ProductRepository(
     }
 
     /**
+     * Cập nhật ngưỡng tồn kho cho sản phẩm (UC33).
+     *
+     * @param productId Mã sản phẩm.
+     * @param minStock Ngưỡng tối thiểu.
+     * @param maxStock Ngưỡng tối đa.
+     * @return true nếu cập nhật thành công.
+     */
+    fun updateThresholds(
+        productId: Long,
+        minStock: Int,
+        maxStock: Int
+    ): Boolean {
+        val sql = """
+            UPDATE products
+            SET min_stock = ?,
+                max_stock = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE product_id = ?
+        """.trimIndent()
+
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                statement.setInt(1, minStock)
+                statement.setInt(2, maxStock)
+                statement.setLong(3, productId)
+                statement.executeUpdate() > 0
+            }
+        }
+    }
+
+    /**
      * Lấy danh sách tồn kho của một sản phẩm tại các kho.
      *
      * @param productId Mã sản phẩm.
