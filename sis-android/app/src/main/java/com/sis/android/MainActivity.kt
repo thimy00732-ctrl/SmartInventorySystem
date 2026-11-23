@@ -202,8 +202,9 @@ fun MainScreen(
         Scaffold(
             containerColor = Color.White,
             bottomBar = {
-                // Chỉ hiện bottom nav khi không ở màn hình Staff Management hoặc Inventory Module
-                if (!currentScreen.startsWith("STAFF") && !currentScreen.startsWith("inventory/")) {
+                // Chỉ hiện bottom nav khi KHÔNG ở màn hình Staff Management
+                // Inventory module VẪN HIỂN thị bottom nav
+                if (!currentScreen.startsWith("STAFF")) {
                     NavigationBar(
                         containerColor = Color.White,
                         contentColor = CrudColors.Primary,
@@ -261,9 +262,26 @@ fun MainScreen(
                     
                     // Inventory Module - Sprint 2
                     currentScreen.startsWith("inventory/") -> {
+                        // Parse screen name from route: inventory/list, inventory/alerts, etc.
+                        val screenName = currentScreen.removePrefix("inventory/")
+                        
+                        // Map user role to InventoryUserRole
+                        val inventoryRole = when (currentUser.role) {
+                            "ADMIN" -> com.sis.android.ui.inventory.InventoryUserRole.ADMIN
+                            "WAREHOUSE_STAFF" -> com.sis.android.ui.inventory.InventoryUserRole.WAREHOUSE_STAFF
+                            else -> com.sis.android.ui.inventory.InventoryUserRole.WAREHOUSE_STAFF
+                        }
+                        
                         InventoryModuleHost(
                             onGoToProducts = { currentScreen = "LIST" },
-                            apiService = RetrofitClient.apiService
+                            userRole = inventoryRole,
+                            apiService = RetrofitClient.apiService,
+                            initialScreen = screenName,
+                            onMenuClick = {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
                         )
                     }
                     

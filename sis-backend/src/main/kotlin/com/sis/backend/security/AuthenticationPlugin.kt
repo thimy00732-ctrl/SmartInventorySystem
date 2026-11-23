@@ -77,22 +77,6 @@ fun ApplicationCall.getPrincipal(): JwtPrincipal? {
 }
 
 /**
- * Extension function để lấy user ID từ principal
- */
-fun ApplicationCall.getUserId(): Int {
-    return getPrincipal()?.userId 
-        ?: throw IllegalStateException("User ID not found in principal")
-}
-
-/**
- * Extension function để lấy role từ principal
- */
-fun ApplicationCall.getUserRole(): String {
-    return getPrincipal()?.role 
-        ?: throw IllegalStateException("Role not found in principal")
-}
-
-/**
  * Extension function để lấy email từ principal
  */
 fun ApplicationCall.getUserEmail(): String {
@@ -104,12 +88,14 @@ fun ApplicationCall.getUserEmail(): String {
  * Extension function để kiểm tra role có phải ADMIN không
  */
 fun ApplicationCall.isAdmin(): Boolean {
-    return getUserRole() == "ADMIN"
+    val principal = getPrincipal()
+    return principal?.role == "ADMIN"
 }
 
 /**
  * Extension function để kiểm tra role có phải WAREHOUSE_STAFF không
  */
 fun ApplicationCall.isStaff(): Boolean {
-    return getUserRole() == "WAREHOUSE_STAFF"
+    val principal = getPrincipal()
+    return principal?.role == "WAREHOUSE_STAFF"
 }

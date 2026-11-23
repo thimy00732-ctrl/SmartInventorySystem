@@ -41,10 +41,7 @@ import androidx.compose.material3.OutlinedTextField as Material3OutlinedTextFiel
 fun InventoryScreen(
     viewModel: InventoryViewModel,
     onGoToProducts: () -> Unit,
-    onGoToAlerts: () -> Unit,
-    onGoToThresholds: () -> Unit,
-    onGoToValuation: () -> Unit,
-    onGoToStockLedger: () -> Unit
+    onMenuClick: () -> Unit
 ) {
     val uiState by viewModel.inventoryUiState.collectAsState()
     val searchQuery by viewModel.inventorySearchQuery.collectAsState()
@@ -68,20 +65,11 @@ fun InventoryScreen(
         Column(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
-            // Header with navigation buttons
+            // Header with menu button
             AppHeader(
                 title = "Tồn kho",
                 subtitle = "Quản lý tồn kho theo kho, lô, hạn sử dụng",
-                actions = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onGoToAlerts) {
-                            Text("Cảnh báo", color = Color.White, fontSize = 13.sp)
-                        }
-                        TextButton(onClick = onGoToStockLedger) {
-                            Text("Sổ ghi nhận", color = Color.White, fontSize = 13.sp)
-                        }
-                    }
-                }
+                onMenu = onMenuClick
             )
 
             Column(

@@ -5,6 +5,7 @@ import com.sis.backend.controller.ThresholdController
 import com.sis.backend.dto.*
 import com.sis.backend.dto.product.CreateProductRequest
 import com.sis.backend.dto.product.UpdateProductRequest
+import com.sis.backend.entity.UserRole
 import com.sis.backend.repository.CategoryRepository
 import com.sis.backend.repository.SupplierRepository
 import com.sis.backend.security.RolePolicy
@@ -52,7 +53,7 @@ fun Route.productRoutes(
         // ========== ENDPOINTS CHO CẢ ADMIN VÀ WAREHOUSE_STAFF ==========
         // UC09, UC10, UC13, UC14: Xem, tìm kiếm, lọc sản phẩm
         
-        requireStaffOrAdmin {
+        requireRole(UserRole.ADMIN, UserRole.WAREHOUSE_STAFF) {
             /**
              * UC09, UC13, UC14: Lấy danh sách sản phẩm có tìm kiếm, lọc và phân trang.
              */
@@ -172,7 +173,7 @@ fun Route.productRoutes(
         // ========== ENDPOINTS CHỈ CHO ADMIN ==========
         // UC08, UC11, UC12: Thêm, cập nhật, ngừng kinh doanh sản phẩm
         
-        requireAdmin {
+        requireRole(UserRole.ADMIN) {
             /**
              * UC08: Thêm sản phẩm mới - CHỈ ADMIN.
              */

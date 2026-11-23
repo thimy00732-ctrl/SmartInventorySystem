@@ -626,30 +626,47 @@ private fun buildNavigationItems(currentUser: User?): List<NavigationItem> {
             title = "Quản lý tồn kho",
             icon = Icons.Default.Inventory,
             badge = BadgeInfo(text = "NEW", color = CrudColors.OkText),
-            children = listOf(
-                NavigationChild(
-                    id = "stock_overview",
-                    title = "Tổng quan tồn kho",
-                    route = "inventory/overview",
-                    badge = BadgeInfo(count = 3, color = CrudColors.DangerAction)
-                ),
-                NavigationChild(
-                    id = "stock_by_location",
-                    title = "Tồn kho theo vị trí",
-                    route = "inventory/by-location"
-                ),
-                NavigationChild(
-                    id = "stock_alerts",
+            children = buildList {
+                // UC29-32: Danh sách tồn kho - Cả hai role
+                add(NavigationChild(
+                    id = "inventory_list",
+                    title = "Danh sách tồn kho",
+                    route = "inventory/list"
+                ))
+                
+                // UC34-35: Cảnh báo tồn kho - Cả hai role
+                add(NavigationChild(
+                    id = "inventory_alerts",
                     title = "Cảnh báo tồn kho",
                     route = "inventory/alerts",
                     badge = BadgeInfo(count = 12, color = CrudColors.WarnText)
-                ),
-                NavigationChild(
-                    id = "stock_movements",
-                    title = "Lịch sử xuất nhập",
-                    route = "inventory/movements"
-                )
-            )
+                ))
+                
+                // UC36-37: Sổ ghi nhận tồn kho - Cả hai role
+                add(NavigationChild(
+                    id = "inventory_ledger",
+                    title = "Sổ ghi nhận",
+                    route = "inventory/ledger"
+                ))
+                
+                // UC39: Định giá tồn kho - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "inventory_valuation",
+                        title = "Định giá tồn kho",
+                        route = "inventory/valuation"
+                    ))
+                }
+                
+                // UC33: Thiết lập ngưỡng tồn kho - CHỈ ADMIN
+                if (isAdmin) {
+                    add(NavigationChild(
+                        id = "inventory_thresholds",
+                        title = "Ngưỡng tồn kho",
+                        route = "inventory/thresholds"
+                    ))
+                }
+            }
         ),
         
         // 5. Nhập / Xuất / Kiểm kê

@@ -1,6 +1,7 @@
 package com.sis.android.ui.inventory
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,12 +16,17 @@ import com.sis.android.ui.viewmodel.InventoryViewModel
 /**
  * Điều phối navigation cho Inventory Module
  * Tạo ViewModel manually và quản lý navigation giữa các màn hình
+ * 
+ * @param initialScreen Màn hình ban đầu (từ navigation drawer)
+ * @param onMenuClick Callback để mở navigation drawer
  */
 @Composable
 fun InventoryModuleHost(
     onGoToProducts: () -> Unit,
     userRole: InventoryUserRole = InventoryUserRole.WAREHOUSE_STAFF,
-    apiService: ApiService
+    apiService: ApiService,
+    initialScreen: String? = null,
+    onMenuClick: () -> Unit
 ) {
     // Create ViewModel
     val viewModel: InventoryViewModel = viewModel(
@@ -31,6 +37,25 @@ fun InventoryModuleHost(
     
     var currentScreen by remember { mutableStateOf(InventoryModuleScreen.LIST) }
     
+    // Listen to initialScreen changes from navigation drawer
+    LaunchedEffect(initialScreen) {
+        val targetScreen = when (initialScreen) {
+            "list" -> InventoryModuleScreen.LIST
+            "alerts" -> InventoryModuleScreen.ALERTS
+            "ledger" -> InventoryModuleScreen.STOCK_LEDGER
+            "valuation" -> if (InventoryRolePolicy.canViewValuation(userRole)) 
+                InventoryModuleScreen.VALUATION 
+            else 
+                InventoryModuleScreen.LIST
+            "thresholds" -> if (InventoryRolePolicy.canManageThresholds(userRole)) 
+                InventoryModuleScreen.THRESHOLDS 
+            else 
+                InventoryModuleScreen.LIST
+            else -> InventoryModuleScreen.LIST
+        }
+        currentScreen = targetScreen
+    }
+    
     // Permission checks
     val canManageThresholds = InventoryRolePolicy.canManageThresholds(userRole)
     val canViewValuation = InventoryRolePolicy.canViewValuation(userRole)
@@ -39,14 +64,7 @@ fun InventoryModuleHost(
         InventoryModuleScreen.LIST -> InventoryScreen(
             viewModel = viewModel,
             onGoToProducts = onGoToProducts,
-            onGoToAlerts = { currentScreen = InventoryModuleScreen.ALERTS },
-            onGoToThresholds = {
-                if (canManageThresholds) currentScreen = InventoryModuleScreen.THRESHOLDS
-            },
-            onGoToValuation = {
-                if (canViewValuation) currentScreen = InventoryModuleScreen.VALUATION
-            },
-            onGoToStockLedger = { currentScreen = InventoryModuleScreen.STOCK_LEDGER }
+            onMenuClick = onMenuClick
         )
 
         InventoryModuleScreen.ALERTS -> InventoryAlertsScreen(
